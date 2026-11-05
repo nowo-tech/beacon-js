@@ -12,6 +12,7 @@ export default tseslint.config(
       '**/test-results/**',
       '**/playwright-report/**',
       'fixtures/envelopes/golden/**',
+      '**/.vitest/**',
     ],
   },
   js.configs.recommended,
@@ -24,11 +25,25 @@ export default tseslint.config(
       'no-new-func': 'error',
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // noUncheckedIndexedAccess makes `!` the clearest way to state a checked index access.
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      // Event payloads are plain JSON objects; deleting a key is how a field is removed from the wire.
+      '@typescript-eslint/no-dynamic-delete': 'off',
     },
   },
   {
-    files: ['**/*.test.ts', '**/test/**', 'e2e/**', 'scripts/**', 'fixtures/**'],
-    rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
+    files: ['**/test/**/*.ts'],
+    rules: { '@typescript-eslint/no-explicit-any': 'off' },
+  },
+  {
+    // Plain-JS test infrastructure (mock server, e2e): typed loosely on purpose.
+    files: ['e2e/**/*.js', 'e2e/**/*.mjs', 'tooling/**/*.mjs'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+    },
   },
   prettier,
 );

@@ -1,0 +1,12 @@
+TypeError: x is undefined
+    at handleClick (https://app.test/assets/index-3f9a1c2b.js?v=1:10:15)
+    at async loadData (https://app.test/assets/index-3f9a1c2b.js:20:3)
+    at new Widget (https://app.test/src/widget.js:5:9)
+    at Array.forEach (<anonymous>)
+    at eval (eval at compile (https://app.test/vendor.js:3:10), <anonymous>:1:1)
+    at https://app.test/main.js:1:1
+    at Object.<anonymous> (/app/node_modules/lib/index.js:2:3)
+    at Module._compile (node:internal/modules/cjs/loader:1554:14)
+    at chrome-extension://abc/content.js:1:1
+    at Promise.all (index 0)
+    at native

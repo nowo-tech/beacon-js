@@ -4,3 +4,9 @@ coverage/
 fixtures/envelopes/golden/
 *.api.md
 CHANGELOG.md
+fixtures/envelopes/golden/
+**/etc/*.api.md
+.vitest/
+test-results/
+playwright-report/
+**/fixtures/*.txt

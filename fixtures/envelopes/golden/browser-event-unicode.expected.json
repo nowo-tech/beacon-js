@@ -1,0 +1,18 @@
+{
+  "status": 200,
+  "items": {
+    "accepted": 1,
+    "counted": 0,
+    "dropped": 0
+  },
+  "event": {
+    "platform": "javascript",
+    "level": "error",
+    "grouping": {
+      "type": "Error",
+      "value_normalised": "Pago rechazado: «tarjeta» ñandú 😀 日本語 � end",
+      "filename": "assets/pay.js",
+      "function": "pay"
+    }
+  }
+}

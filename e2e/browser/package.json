@@ -1,0 +1,14 @@
+{
+  "name": "@beacon-js/e2e-browser",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Browser e2e: the IIFE and <beacon-reporter> against the mock Beacon on Chromium, Firefox and WebKit (contract §11.3).",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "@beacon-js/mock-beacon": "workspace:*"
+  }
+}

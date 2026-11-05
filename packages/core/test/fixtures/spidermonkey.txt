@@ -1,0 +1,7 @@
+handleClick@https://app.test/assets/index-3f9a1c2b.js:10:15
+loadData/<@https://app.test/assets/index.js:20:3
+@https://app.test/main.js:1:1
+evalFn@https://app.test/vendor.js line 3 > eval:1:1
+fnFn@https://app.test/vendor.js line 7 > Function:1:1
+moz@moz-extension://abc/content.js:1:1
+

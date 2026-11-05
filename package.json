@@ -9,17 +9,48 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "lint": "eslint .",
+    "build": "pnpm -r --filter \"./packages/*\" build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r --filter \"./packages/*\" test",
+    "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "golden": "node fixtures/envelopes/generate.ts",
+    "e2e:node": "pnpm --filter @beacon-js/e2e-node test",
+    "e2e:browser": "pnpm --filter @beacon-js/e2e-browser test",
+    "test:mock": "pnpm --filter @beacon-js/mock-beacon test",
+    "size": "size-limit",
+    "pack:check": "node tooling/pack-check.mjs",
+    "golden:check": "node fixtures/envelopes/generate.ts && git diff --exit-code -- fixtures/envelopes/golden",
+    "changeset": "changeset"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@beacon-js/mock-beacon": "workspace:*",
+    "@changesets/cli": "3.0.3",
     "@eslint/js": "10.0.1",
+    "@microsoft/api-extractor": "7.60.1",
+    "@nowo-tech/beacon-browser": "workspace:*",
+    "@nowo-tech/beacon-core": "workspace:*",
+    "@nowo-tech/beacon-express": "workspace:*",
+    "@nowo-tech/beacon-node": "workspace:*",
+    "@playwright/test": "1.64.1",
+    "@size-limit/esbuild": "14.3.0",
+    "@size-limit/file": "14.3.0",
+    "@types/node": "22.20.5",
+    "@vitest/browser-playwright": "5.1.0",
+    "@vitest/coverage-v8": "5.1.0",
+    "esbuild": "0.28.2",
     "eslint": "10.14.0",
     "eslint-config-prettier": "10.1.8",
+    "fast-check": "4.10.2",
     "globals": "17.14.0",
+    "playwright": "1.64.1",
     "prettier": "3.9.10",
+    "publint": "0.3.25",
+    "size-limit": "14.3.0",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.72.1"
+    "typescript-eslint": "8.72.1",
+    "vitest": "5.1.0"
   }
 }

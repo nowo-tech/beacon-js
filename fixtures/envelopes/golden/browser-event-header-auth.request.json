@@ -1,0 +1,10 @@
+{
+  "method": "POST",
+  "path": "/api/{projectId}/envelope/",
+  "project_id": "00000000-0000-4000-8000-000000000001",
+  "headers": {
+    "X-Beacon-Auth": "Beacon beacon_key=bk_golden_0000000000000000",
+    "Content-Type": "text/plain;charset=UTF-8",
+    "Origin": "https://app.test"
+  }
+}

@@ -1,0 +1,235 @@
+{
+  "schema": "nowo.beacon-js.golden/v1",
+  "sdk_version": "0.1.0",
+  "git_sha": null,
+  "placeholders": {
+    "project": "00000000-0000-4000-8000-000000000001",
+    "host": "beacon.test",
+    "browser_key": "bk_golden_0000000000000000",
+    "server_key": "golden-public",
+    "server_secret": "golden-secret-not-real",
+    "origin": "https://app.test"
+  },
+  "cases": [
+    {
+      "name": "browser-event-exception",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [
+        "spec-172-A",
+        "spec-172-B"
+      ],
+      "key_kind": "browser",
+      "envelope": "browser-event-exception.envelope",
+      "request": "browser-event-exception.request.json",
+      "expected": "browser-event-exception.expected.json"
+    },
+    {
+      "name": "browser-event-message",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [
+        "spec-172-A",
+        "spec-172-B"
+      ],
+      "key_kind": "browser",
+      "envelope": "browser-event-message.envelope",
+      "request": "browser-event-message.request.json",
+      "expected": "browser-event-message.expected.json"
+    },
+    {
+      "name": "browser-event-cause-chain",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [
+        "spec-172-A",
+        "spec-172-B"
+      ],
+      "key_kind": "browser",
+      "envelope": "browser-event-cause-chain.envelope",
+      "request": "browser-event-cause-chain.request.json",
+      "expected": "browser-event-cause-chain.expected.json"
+    },
+    {
+      "name": "browser-event-spidermonkey",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [
+        "spec-172-A",
+        "spec-172-B"
+      ],
+      "key_kind": "browser",
+      "envelope": "browser-event-spidermonkey.envelope",
+      "request": "browser-event-spidermonkey.request.json",
+      "expected": "browser-event-spidermonkey.expected.json"
+    },
+    {
+      "name": "browser-event-jsc",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [
+        "spec-172-A",
+        "spec-172-B"
+      ],
+      "key_kind": "browser",
+      "envelope": "browser-event-jsc.envelope",
+      "request": "browser-event-jsc.request.json",
+      "expected": "browser-event-jsc.expected.json"
+    },
+    {
+      "name": "browser-event-hashed-filename",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [
+        "spec-172-A",
+        "spec-172-B"
+      ],
+      "key_kind": "browser",
+      "envelope": "browser-event-hashed-filename.envelope",
+      "request": "browser-event-hashed-filename.request.json",
+      "expected": "browser-event-hashed-filename.expected.json"
+    },
+    {
+      "name": "browser-event-unicode",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [
+        "spec-172-A",
+        "spec-172-B"
+      ],
+      "key_kind": "browser",
+      "envelope": "browser-event-unicode.envelope",
+      "request": "browser-event-unicode.request.json",
+      "expected": "browser-event-unicode.expected.json"
+    },
+    {
+      "name": "browser-event-max-caps",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [
+        "spec-172-A",
+        "spec-172-B"
+      ],
+      "key_kind": "browser",
+      "envelope": "browser-event-max-caps.envelope",
+      "request": "browser-event-max-caps.request.json",
+      "expected": "browser-event-max-caps.expected.json"
+    },
+    {
+      "name": "browser-event-header-auth",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [
+        "spec-172-A",
+        "spec-172-B"
+      ],
+      "key_kind": "browser",
+      "envelope": "browser-event-header-auth.envelope",
+      "request": "browser-event-header-auth.request.json",
+      "expected": "browser-event-header-auth.expected.json"
+    },
+    {
+      "name": "browser-event-gzip",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [
+        "spec-172-A",
+        "spec-172-B"
+      ],
+      "key_kind": "browser",
+      "envelope": "browser-event-gzip.envelope.gz",
+      "request": "browser-event-gzip.request.json",
+      "expected": "browser-event-gzip.expected.json"
+    },
+    {
+      "name": "browser-client-report",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [
+        "spec-172-A",
+        "spec-172-B"
+      ],
+      "key_kind": "browser",
+      "envelope": "browser-client-report.envelope",
+      "request": "browser-client-report.request.json",
+      "expected": "browser-client-report.expected.json"
+    },
+    {
+      "name": "negative-browser-no-origin",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [
+        "spec-172-A",
+        "spec-172-B"
+      ],
+      "key_kind": "browser",
+      "envelope": "negative-browser-no-origin.envelope",
+      "request": "negative-browser-no-origin.request.json",
+      "expected": "negative-browser-no-origin.expected.json"
+    },
+    {
+      "name": "node-event-express",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [],
+      "key_kind": "server",
+      "envelope": "node-event-express.envelope",
+      "request": "node-event-express.request.json",
+      "expected": "node-event-express.expected.json"
+    },
+    {
+      "name": "node-event-uncaught",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [],
+      "key_kind": "server",
+      "envelope": "node-event-uncaught.envelope",
+      "request": "node-event-uncaught.request.json",
+      "expected": "node-event-uncaught.expected.json"
+    },
+    {
+      "name": "node-event-gzip",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [
+        "spec-172-gzip"
+      ],
+      "key_kind": "server",
+      "envelope": "node-event-gzip.envelope.gz",
+      "request": "node-event-gzip.request.json",
+      "expected": "node-event-gzip.expected.json"
+    },
+    {
+      "name": "node-envelope-dsn-auth",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [],
+      "key_kind": "server",
+      "envelope": "node-envelope-dsn-auth.envelope",
+      "request": "node-envelope-dsn-auth.request.json",
+      "expected": "node-envelope-dsn-auth.expected.json"
+    },
+    {
+      "name": "negative-query-credentials",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [],
+      "key_kind": "server",
+      "envelope": "negative-query-credentials.envelope",
+      "request": "negative-query-credentials.request.json",
+      "expected": "negative-query-credentials.expected.json"
+    },
+    {
+      "name": "negative-ratio-over-50",
+      "since": "0.1.0",
+      "min_beacon": null,
+      "requires": [
+        "spec-172-gzip"
+      ],
+      "key_kind": "server",
+      "envelope": "negative-ratio-over-50.envelope.gz",
+      "request": "negative-ratio-over-50.request.json",
+      "expected": "negative-ratio-over-50.expected.json"
+    }
+  ]
+}

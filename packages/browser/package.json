@@ -1,0 +1,99 @@
+{
+  "name": "@nowo-tech/beacon-browser",
+  "version": "0.1.0",
+  "description": "Beacon SDK for browsers: global error handlers, HTTP and DOM breadcrumbs, the <beacon-reporter> web component, ESM and IIFE builds.",
+  "keywords": [
+    "beacon",
+    "error-tracking",
+    "browser",
+    "web-component",
+    "sentry-compatible"
+  ],
+  "license": "MIT",
+  "author": "nowo-tech",
+  "homepage": "https://github.com/nowo-tech/beacon-js/tree/main/packages/browser#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nowo-tech/beacon-js.git",
+    "directory": "packages/browser"
+  },
+  "bugs": "https://github.com/nowo-tech/beacon-js/issues",
+  "type": "module",
+  "sideEffects": [
+    "./dist/element.mjs"
+  ],
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.mjs"
+    },
+    "./element": {
+      "types": "./dist/element.d.ts",
+      "default": "./dist/element.mjs"
+    },
+    "./offline": {
+      "types": "./dist/offline.d.ts",
+      "default": "./dist/offline.mjs"
+    },
+    "./delivery/*": "./dist/delivery/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "dependencies": {
+    "@nowo-tech/beacon-core": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "node ../../tooling/build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --coverage"
+  },
+  "beaconBuild": {
+    "platform": "browser",
+    "entries": [
+      {
+        "in": "src/index.ts",
+        "out": "index",
+        "formats": [
+          "esm"
+        ]
+      },
+      {
+        "in": "src/element-define.ts",
+        "out": "element",
+        "formats": [
+          "esm"
+        ]
+      },
+      {
+        "in": "src/offline.ts",
+        "out": "offline",
+        "formats": [
+          "esm"
+        ]
+      }
+    ],
+    "delivery": [
+      {
+        "in": "src/delivery.ts",
+        "out": "beacon.min.js",
+        "format": "iife",
+        "globalName": "NowoBeacon"
+      },
+      {
+        "in": "src/delivery.ts",
+        "out": "beacon.esm.min.js",
+        "format": "esm"
+      }
+    ]
+  }
+}

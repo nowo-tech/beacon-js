@@ -1,0 +1,6 @@
+handleClick@https://app.test/assets/index.js:10:15
+global code@https://app.test/main.js:1:1
+forEach@[native code]
+[native code]
+safari@safari-web-extension://abc/c.js:1:1
+not a frame
