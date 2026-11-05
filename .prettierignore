@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+dist/
+coverage/
+fixtures/envelopes/golden/
+*.api.md
+CHANGELOG.md

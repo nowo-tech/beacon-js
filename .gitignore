@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+temp/
+*.tsbuildinfo
+.pnpm-store/
+test-results/
+playwright-report/
+blob-report/
+.size-limit-report/
+.DS_Store
+*.log
