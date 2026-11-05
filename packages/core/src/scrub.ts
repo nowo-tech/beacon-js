@@ -96,13 +96,15 @@ export function scrubObject(value: unknown, depth = 10): unknown {
   if (depth <= 0) return value;
   if (Array.isArray(value)) return value.map((item) => scrubObject(item, depth - 1));
   if (!isPlainObject(value)) return value;
-  const out: Record<string, unknown> = {};
-  for (const [key, item] of Object.entries(value)) {
-    // Never copy keys that would reach a prototype.
-    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
-    out[key] = SENSITIVE_KEY.test(key) ? FILTERED : scrubObject(item, depth - 1);
-  }
-  return out;
+  // Own properties only (never an assignment through a computed key), and never keys that would reach a prototype.
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== '__proto__' && key !== 'constructor' && key !== 'prototype')
+      .map(([key, item]) => [
+        key,
+        SENSITIVE_KEY.test(key) ? FILTERED : scrubObject(item, depth - 1),
+      ]),
+  );
 }
 
 export function scrubHeaders(headers: Record<string, string>): Record<string, string> {

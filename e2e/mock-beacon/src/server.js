@@ -48,15 +48,15 @@ export function defaultConfig() {
 /** A port of Beacon's EnvelopeAuthParser: `Beacon k=v, k=v` after the literal prefix. */
 export function parseBeaconAuth(header) {
   if (typeof header !== 'string' || !header.startsWith('Beacon ')) return {};
-  /** @type {Record<string, string>} */
-  const out = {};
+  /** @type {Array<[string, string]>} */
+  const entries = [];
   for (const pair of header.slice(7).split(',')) {
     const index = pair.indexOf('=');
     const key = pair.slice(0, index).trim();
     if (index > 0 && key !== '__proto__' && key !== 'constructor' && key !== 'prototype')
-      out[key] = pair.slice(index + 1).trim();
+      entries.push([key, pair.slice(index + 1).trim()]);
   }
-  return out;
+  return Object.fromEntries(entries);
 }
 
 class EnvelopeError extends Error {}

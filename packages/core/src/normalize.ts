@@ -62,7 +62,7 @@ function walk(
       obj instanceof Error
         ? { ...obj, name: obj.name, message: obj.message }
         : (obj as Record<string, unknown>);
-    const result: Record<string, unknown> = {};
+    const entries: Array<[string, unknown]> = [];
     let count = 0;
     for (const key of Object.keys(source)) {
       // Never copy keys that would reach a prototype.
@@ -70,11 +70,12 @@ function walk(
       if (count >= limits.maxKeys) break;
       const normalized = walk(source[key], limits, depth - 1, seen);
       if (normalized !== undefined) {
-        result[wellFormed(key)] = normalized;
+        entries.push([wellFormed(key), normalized]);
         count++;
       }
     }
-    out = result;
+    // Own properties only, never an assignment through a computed key.
+    out = Object.fromEntries(entries);
   }
   seen.delete(obj);
   return out;
