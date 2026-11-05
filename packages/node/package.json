@@ -1,0 +1,72 @@
+{
+  "name": "@nowo-tech/beacon-node",
+  "version": "0.1.0",
+  "description": "Beacon SDK for Node.js: process handlers, HTTP breadcrumbs, request isolation, gzip and a file queue.",
+  "keywords": [
+    "beacon",
+    "error-tracking",
+    "node",
+    "sentry-compatible"
+  ],
+  "license": "MIT",
+  "author": "nowo-tech",
+  "homepage": "https://github.com/nowo-tech/beacon-js/tree/main/packages/node#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nowo-tech/beacon-js.git",
+    "directory": "packages/node"
+  },
+  "bugs": "https://github.com/nowo-tech/beacon-js/issues",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "node ../../tooling/build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@nowo-tech/beacon-core": "workspace:*"
+  },
+  "beaconBuild": {
+    "platform": "node",
+    "target": "node20",
+    "entries": [
+      {
+        "in": "src/index.ts",
+        "out": "index",
+        "formats": [
+          "esm",
+          "cjs"
+        ]
+      }
+    ]
+  }
+}
