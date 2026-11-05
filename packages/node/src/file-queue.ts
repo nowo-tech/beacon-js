@@ -21,12 +21,16 @@ const SUFFIX = '.envelope';
 // Platform-dependent: the `?? 0` side only runs on Windows.
 /* v8 ignore next */
 const NOFOLLOW = constants.O_NOFOLLOW ?? 0;
+/** A FIFO or device with a queue name must never block the drain (FVD-I4); Windows has no such flag. */
+/* v8 ignore next */
+const NONBLOCK = constants.O_NONBLOCK ?? 0;
 const FILE_NAME = /^[0-9TZ-]+-[0-9a-f]{32}\.envelope$/;
 
 async function readNoFollow(path: string): Promise<string> {
   // Checked on the open handle itself, so that nothing can be swapped between the check and the read.
-  const handle = await open(path, constants.O_RDONLY | NOFOLLOW);
+  const handle = await open(path, constants.O_RDONLY | NOFOLLOW | NONBLOCK);
   try {
+    // Only regular files are read: FIFOs, sockets and devices are refused (and then dropped).
     if (!(await handle.stat()).isFile()) throw new Error('not a regular file');
     return await handle.readFile('utf8');
   } finally {
@@ -38,7 +42,7 @@ async function writeNoFollow(path: string, data: string): Promise<void> {
   // O_EXCL: never write through an existing name, symlink or not.
   const handle = await open(
     path,
-    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | NOFOLLOW,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | NOFOLLOW | NONBLOCK,
     0o600,
   );
   try {

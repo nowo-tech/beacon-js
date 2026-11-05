@@ -1,6 +1,7 @@
 import {
   getClient,
   getCurrentScope,
+  isClientAddressHeader,
   maskCredentials,
   normalize,
   scrubObject,
@@ -40,7 +41,12 @@ export const DEFAULT_ALLOWED_HEADERS: readonly string[] = [
 
 /** Never recorded, whatever the allow-list says: client addresses, cookies and credentials. */
 const NEVER_HEADERS =
-  /forwarded|client-?ip|real-?ip|(?:^|-)ip(?:v[46])?$|^cf-|^fastly-|^x-vercel-|external-address|true-client|cookie|authorization|^x-beacon-auth$|api-?key|token|secret/i;
+  /cookie|authorization|^x-beacon-auth$|api-?key|token|secret|session|csrf|xsrf|password|credential/i;
+
+/** Client-address headers (FVD-L1) and credential headers are never recorded, even when opted in. */
+function isNeverRecorded(name: string): boolean {
+  return isClientAddressHeader(name) || NEVER_HEADERS.test(name);
+}
 
 export const BODY_TRUNCATED = '[truncated]';
 export const BODY_UNPARSED = '[unparsed]';
@@ -53,7 +59,7 @@ function headersOf(req: Request, allowHeaders: readonly string[]): Record<string
   const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(req.headers)) {
     const lower = name.toLowerCase();
-    if (value === undefined || !allowed.has(lower) || NEVER_HEADERS.test(lower)) continue;
+    if (value === undefined || !allowed.has(lower) || isNeverRecorded(name)) continue;
     const text = Array.isArray(value) ? value.join(', ') : value;
     // The referer is another page's URL: its query string and fragment are never kept.
     out[name] = lower === 'referer' ? scrubUrl(text).replace(/\?.*$/, '') : text;
@@ -84,7 +90,7 @@ export function bodyOf(body: unknown, contentType = ''): unknown {
   } catch {
     return BODY_UNPARSED;
   }
-  const scrubbed = maskValues(scrubObject(value, 20));
+  const scrubbed = maskValues(scrubObject(value, MASK_DEPTH));
   const normalized = normalize(scrubbed, {
     depth: 5,
     maxKeys: 100,
@@ -94,13 +100,21 @@ export function bodyOf(body: unknown, contentType = ''): unknown {
   return JSON.stringify(normalized).length > MAX_BODY_BYTES ? BODY_TRUNCATED : normalized;
 }
 
-function maskValues(value: unknown): unknown {
+const MASK_DEPTH = 20;
+
+/**
+ * Masks credential-looking strings, at most {@link MASK_DEPTH} levels deep (FVD-I2). Card numbers sent as numbers
+ * are already masked by `scrubObject`.
+ */
+function maskValues(value: unknown, depth = MASK_DEPTH): unknown {
   if (typeof value === 'string') return maskCredentials(value);
-  if (Array.isArray(value)) return value.map(maskValues);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, maskValues(item)]));
-  }
-  return value;
+  if (!value || typeof value !== 'object') return value;
+  // Deeper (or cyclic) structures are not walked: they are cut here instead of throwing.
+  if (depth <= 0) return '[Filtered]';
+  if (Array.isArray(value)) return value.map((item) => maskValues(item, depth - 1));
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, maskValues(item, depth - 1)]),
+  );
 }
 
 /** Request data for the event (contract §8.2): method, scrubbed URL, allow-listed headers, never cookies. */

@@ -75,7 +75,9 @@ function isSensitiveQueryName(name: string): boolean {
 export function scrubUrl(url: string): string {
   const withoutHash = String(url)
     .split('#')[0]!
-    .replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/?#]*@/i, '$1');
+    .replace(/^\s+/, '')
+    // userinfo after `scheme://` or a protocol-relative `//` (FVD-I3)
+    .replace(/^((?:[a-z][a-z0-9+.-]*:)?\/\/)[^/?#]*@/i, '$1');
   const q = withoutHash.indexOf('?');
   if (q === -1) return withoutHash;
   const query = withoutHash
@@ -91,8 +93,62 @@ export function scrubUrl(url: string): string {
   return `${withoutHash.slice(0, q + 1)}${query}`;
 }
 
-/** Redacts sensitive keys (deep). Returns new objects; never mutates the input. */
+/** Latin look-alikes of the scrubber's key letters (Cyrillic and Greek), after NFKC. */
+const CONFUSABLES: Record<string, string> = {
+  а: 'a',
+  е: 'e',
+  о: 'o',
+  р: 'p',
+  с: 'c',
+  у: 'y',
+  х: 'x',
+  ѕ: 's',
+  і: 'i',
+  ј: 'j',
+  к: 'k',
+  т: 't',
+  н: 'h',
+  в: 'b',
+  м: 'm',
+  ԁ: 'd',
+  ԛ: 'q',
+  ԝ: 'w',
+  ɑ: 'a',
+  ο: 'o',
+  α: 'a',
+  ε: 'e',
+  ι: 'i',
+  κ: 'k',
+  ν: 'v',
+  ρ: 'p',
+  τ: 't',
+};
+
+/** A key as the sensitive-key regex should see it: NFKC, with Cyrillic/Greek look-alikes folded to Latin. */
+export function keyForMatch(key: string): string {
+  return key
+    .normalize('NFKC')
+    .replace(/[\u0080-\uffff]/g, (char) => CONFUSABLES[char.toLowerCase()] ?? char);
+}
+
+/** True for a sensitive key, also when it is written with look-alike letters (`pаssword` with a Cyrillic а). */
+export function isSensitiveKey(key: string): boolean {
+  return SENSITIVE_KEY.test(key) || SENSITIVE_KEY.test(keyForMatch(key));
+}
+
+/** A Luhn-valid 13–19 digit integer: a card number sent as a JSON number (FVD-I1). */
+export function isCardNumber(value: unknown): boolean {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    /^\d{13,19}$/.test(String(value)) &&
+    luhn(String(value))
+  );
+}
+
+/** Redacts sensitive keys and card numbers (deep). Returns new objects; never mutates the input. */
 export function scrubObject(value: unknown, depth = 10): unknown {
+  if (isCardNumber(value)) return FILTERED;
   if (depth <= 0) return value;
   if (Array.isArray(value)) return value.map((item) => scrubObject(item, depth - 1));
   if (!isPlainObject(value)) return value;
@@ -100,10 +156,7 @@ export function scrubObject(value: unknown, depth = 10): unknown {
   return Object.fromEntries(
     Object.entries(value)
       .filter(([key]) => key !== '__proto__' && key !== 'constructor' && key !== 'prototype')
-      .map(([key, item]) => [
-        key,
-        SENSITIVE_KEY.test(key) ? FILTERED : scrubObject(item, depth - 1),
-      ]),
+      .map(([key, item]) => [key, isSensitiveKey(key) ? FILTERED : scrubObject(item, depth - 1)]),
   );
 }
 
@@ -111,7 +164,7 @@ export function scrubHeaders(headers: Record<string, string>): Record<string, st
   const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(headers)) {
     const lower = name.toLowerCase();
-    out[name] = SENSITIVE_HEADERS.includes(lower) || SENSITIVE_KEY.test(lower) ? FILTERED : value;
+    out[name] = SENSITIVE_HEADERS.includes(lower) || isSensitiveKey(lower) ? FILTERED : value;
   }
   return out;
 }

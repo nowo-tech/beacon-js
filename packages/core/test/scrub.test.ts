@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isCardNumber,
+  isSensitiveKey,
+  keyForMatch,
   defaultScrubber,
   FILTERED,
   maskCredentials,
@@ -174,5 +177,28 @@ describe('scrubber', () => {
     expect(maskCredentials('at 1730800000123 id 4111111111111112')).toBe(
       'at 1730800000123 id 4111111111111112',
     );
+  });
+
+  it('masks card numbers sent as JSON numbers and folds homoglyph keys (FVD-I1)', () => {
+    expect(
+      scrubObject({ pan: 4111111111111111, ts: 1730800000123, n: 4111111111111112, f: 1.5 }),
+    ).toEqual({ pan: FILTERED, ts: 1730800000123, n: 4111111111111112, f: 1.5 });
+    expect(isCardNumber('4111111111111111')).toBe(false);
+    expect(keyForMatch('p\u0430ssw\u043Erd')).toBe('password');
+    expect(keyForMatch('ＴＯＫＥＮ')).toBe('TOKEN');
+    expect(keyForMatch('名前')).toBe('名前');
+    expect(scrubObject({ 'p\u0430ssword': 'x', ѕecret: 'y', ok: 'z' })).toEqual({
+      'p\u0430ssword': FILTERED,
+      ѕecret: FILTERED,
+      ok: 'z',
+    });
+    expect(isSensitiveKey('Ρassword')).toBe(true);
+    expect(scrubHeaders({ 'X-Аuth-Thing': 'v' })).toEqual({ 'X-Аuth-Thing': FILTERED });
+  });
+
+  it('strips userinfo from protocol-relative URLs and leading whitespace (FVD-I3)', () => {
+    expect(scrubUrl('//alice:hunter2@cdn.test/x.js')).toBe('//cdn.test/x.js');
+    expect(scrubUrl('  https://alice:hunter2@cdn.test/x')).toBe('https://cdn.test/x');
+    expect(scrubUrl('/path/with@sign')).toBe('/path/with@sign');
   });
 });

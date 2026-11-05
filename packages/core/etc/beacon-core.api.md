@@ -406,11 +406,23 @@ export const IP_HEADER_PATTERN: RegExp;
 // @public
 export const IP_HEADERS: readonly string[];
 
+// @public
+export function isCardNumber(value: unknown): boolean;
+
+// @public
+export function isClientAddressHeader(name: string): boolean;
+
 // @public (undocumented)
 export function isErrorLike(value: unknown): value is Error;
 
 // @public (undocumented)
 export function isInApp(absPath: string, options: FrameOptions): boolean;
+
+// @public
+export function isSensitiveKey(key: string): boolean;
+
+// @public
+export function keyForMatch(key: string): string;
 
 // @public (undocumented)
 export function lastEventId(): string | undefined;

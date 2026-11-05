@@ -20,11 +20,20 @@ Node runtime, OS, app memory), and `sdk` (name, version, integrations).
 ## Limits of IP stripping
 
 Stripping works on **fields**: `user.ip_address`, `{{auto}}` values, `request.env.REMOTE_ADDR` (any case) and every
-request header that can carry a client address (the six of contract §5 plus any name matching
-`forwarded|client-ip|real-ip|…-ip|cf-*|fastly-*|x-vercel-*|external-address|true-client`). The Express adapter goes
+request header that can carry a client address: the six of contract §5, and any name with the word `addr`,
+`address`, `ip`, `client`, `forwarded`, `via` or `socket` (`CloudFront-Viewer-Address`, `X-Remote-Addr`, `Via`,
+`X-Azure-SocketIP`, …), plus `cf-*`, `fastly-*`, `x-vercel-*` and `true-client-*`. The Express adapter goes
 further and records only an allow-list of headers. An IP literal that the **app itself** writes into `extra`,
 `contexts`, tags, breadcrumb data or other `request.env` keys is not detected; do not put addresses there. A
 `{{auto}}` nested deeper than 20 levels is not walked.
+
+## Limits of value scrubbing
+
+The scrubber is mostly key-based. Keys are compared after NFKC normalisation with Cyrillic and Greek look-alikes
+folded to Latin (`pаssword` with a Cyrillic `а` is caught), and card numbers are masked whether they arrive as text
+or as JSON numbers (Luhn check, 13–19 digits). These still pass, because no key or pattern identifies them:
+name/value pairs such as `[{ "name": "password", "value": "…" }]`, and free-text secrets that do not look like a
+token. Keep them out of `extra`, breadcrumbs and request bodies, or drop them in `beforeSend`.
 
 ## Data at rest
 

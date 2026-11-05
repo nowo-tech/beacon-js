@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stripIp } from '../src/privacy.js';
+import { isClientAddressHeader, stripIp } from '../src/privacy.js';
 
 describe('stripIp', () => {
   it('removes user.ip_address, {{auto}}, REMOTE_ADDR and forwarding headers', () => {
@@ -60,5 +60,48 @@ describe('stripIp', () => {
     });
     expect(event.request!.headers).toEqual({ Accept: '198.51.100.7' });
     expect(event.request!.env).toEqual({ PATH: '/bin' });
+  });
+
+  it('treats every address-bearing header name as a client address (FVD-L1)', () => {
+    for (const name of [
+      'CloudFront-Viewer-Address',
+      'X-Remote-Addr',
+      'Via',
+      'X-IP-Address',
+      'X-Azure-SocketIP',
+      'X-Forwarded-For',
+      'x-clientip',
+      'remoteaddr',
+      'True-Client-IP',
+      'Fastly-Client-IP',
+      'X-Envoy-External-Address',
+      'CF-Pseudo-IPv4',
+      'client_ip',
+      'Socket',
+    ]) {
+      expect(isClientAddressHeader(name), name).toBe(true);
+    }
+    for (const name of [
+      'Accept',
+      'User-Agent',
+      'X-Zip-Code',
+      'Content-Type',
+      'Referer',
+      'X-Request-Id',
+      'Viable',
+    ]) {
+      expect(isClientAddressHeader(name), name).toBe(false);
+    }
+    const event = stripIp({
+      request: {
+        headers: {
+          'CloudFront-Viewer-Address': '203.0.113.4:443',
+          Via: '1.1 203.0.113.6',
+          'X-Azure-SocketIP': '203.0.113.10',
+          Accept: '*/*',
+        },
+      },
+    });
+    expect(event.request!.headers).toEqual({ Accept: '*/*' });
   });
 });

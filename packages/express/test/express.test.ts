@@ -209,6 +209,48 @@ describe('beacon-express', () => {
     expect(requests[0]!.body).not.toContain('big-pass-LEAK');
   });
 
+  it('never records address-bearing headers even when allow-listed (FVD-L1 PoC)', async () => {
+    const poc = {
+      'CloudFront-Viewer-Address': '203.0.113.4:443',
+      'X-Remote-Addr': '203.0.113.5',
+      Via: '1.1 203.0.113.6',
+      'X-IP-Address': '203.0.113.9',
+      'X-Azure-SocketIP': '203.0.113.10',
+      'X-Session-Id': 'SESSID',
+      'X-CSRF-Token': 'CSRFTOK',
+      Cookie2: 'COOKIE3',
+      'X-Beacon-Auth': 'Beacon beacon_key=x, beacon_secret=BEACONSECRET',
+      Referer: 'https://alice:REFPASS@app.test/p?token=REFTOK#frag',
+    };
+    const { url, stop } = await serve(app({ allowHeaders: Object.keys(poc) }));
+    await fetch(`${url}/users/1`, { headers: poc });
+    await stop();
+    expect(Object.keys(events()[0]!['request'].headers).sort()).toEqual([
+      'accept',
+      'accept-encoding',
+      'accept-language',
+      'referer',
+      'user-agent',
+    ]);
+    expect(events()[0]!['request'].headers.referer).toBe('https://app.test/p');
+    expect(requests[0]!.body).not.toMatch(
+      /203\.0\.113\.|SESSID|CSRFTOK|COOKIE3|BEACONSECRET|REFPASS|REFTOK/,
+    );
+  });
+
+  it('masks card numbers sent as numbers and bounds the masking depth (FVD-I1, FVD-I2)', () => {
+    expect(bodyOf({ pan: 4111111111111111, nested: [{ card_like: 5555555555554444 }] })).toEqual({
+      pan: '[Filtered]',
+      nested: [{ card_like: '[Filtered]' }],
+    });
+    let deep: Record<string, unknown> = { leaf: 'x' };
+    for (let i = 0; i < 30; i++) deep = { n: deep };
+    expect(() => bodyOf(deep)).not.toThrow();
+    const cyclic: Record<string, unknown> = { a: 1 };
+    cyclic['self'] = cyclic;
+    expect(() => bodyOf(cyclic)).not.toThrow();
+  });
+
   it('parses JSON and form bodies sent as text, and never sends unparsable text', () => {
     expect(bodyOf('{"password":"p","note":"Bearer abc","n":1}', 'application/json')).toEqual({
       password: '[Filtered]',

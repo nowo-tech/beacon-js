@@ -8,6 +8,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -127,6 +128,17 @@ describe('file queue', () => {
       expect(readFileSync(target, 'utf8')).toContain(hex('5'));
     },
   );
+
+  it.skipIf(!posix)('never blocks on a FIFO with a queue name, and drops it (FVD-I4)', async () => {
+    const dir = fresh();
+    mkdirSync(dir, { mode: 0o700 });
+    const fifo = join(dir, name(1, hex('f1f0')));
+    expect(spawnSync('mkfifo', [fifo]).status).toBe(0);
+    const queue = makeFileQueue({ type: 'file', dir, now: () => 10 });
+    await queue.push(envelope(hex('2'), 2));
+    expect((await queue.peek())!.id).toBe(hex('2'));
+    expect(readdirSync(dir)).not.toContain(name(1, hex('f1f0')));
+  });
 
   it('survives unreadable entries', async () => {
     const dir = fresh();

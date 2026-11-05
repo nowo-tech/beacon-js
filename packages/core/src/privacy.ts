@@ -19,6 +19,37 @@ export const IP_HEADERS: readonly string[] = [
 export const IP_HEADER_PATTERN =
   /forwarded|client-?ip|real-?ip|(?:^|-)ip(?:v[46])?$|^cf-|^fastly-|^x-vercel-|external-address|true-client/i;
 
+const ADDRESS_WORDS = new Set([
+  'addr',
+  'address',
+  'ip',
+  'ipv4',
+  'ipv6',
+  'client',
+  'forwarded',
+  'via',
+  'socket',
+]);
+
+/**
+ * True for a header that can carry a client address (FVD-L1): any name with one of the words `addr`, `address`,
+ * `ip`, `client`, `forwarded`, `via` or `socket` (word boundaries are `-`, `_`, `.`, spaces and camelCase, so
+ * `X-Azure-SocketIP`, `CloudFront-Viewer-Address`, `X-Remote-Addr`, `Via` and `X-IP-Address` all match), joined
+ * forms such as `x-clientip` / `remoteaddr`, and {@link IP_HEADER_PATTERN}.
+ */
+export function isClientAddressHeader(name: string): boolean {
+  const words = name
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[-_.\s]+/);
+  return (
+    words.some((word) => ADDRESS_WORDS.has(word)) ||
+    /client-?ip|real-?ip|remote-?addr|socket-?ip|ip-?addr/i.test(name) ||
+    IP_HEADER_PATTERN.test(name)
+  );
+}
+
 const AUTO = '{{auto}}';
 
 function dropAuto(value: unknown, depth: number): unknown {
@@ -47,7 +78,7 @@ export function stripIp(event: BeaconEvent): BeaconEvent {
     }
     if (request.headers) {
       for (const name of Object.keys(request.headers)) {
-        if (IP_HEADERS.includes(name.toLowerCase()) || IP_HEADER_PATTERN.test(name))
+        if (IP_HEADERS.includes(name.toLowerCase()) || isClientAddressHeader(name))
           delete request.headers[name];
       }
     }
