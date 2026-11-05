@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from 'node:fs';
+import { closeSync, fstatSync, openSync, readFileSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Integration, StackFrame } from '@nowo-tech/beacon-core';
@@ -23,8 +23,16 @@ export function contextLinesIntegration(): Integration {
     let result: string[] | null = null;
     try {
       const path = absPath.startsWith('file://') ? fileURLToPath(absPath) : absPath;
-      if (isAbsolute(path) && statSync(path).size <= MAX_FILE_BYTES)
-        result = readFileSync(path, 'utf8').split(/\r?\n/);
+      if (isAbsolute(path)) {
+        // Size checked on the open descriptor, so that the file cannot change between the check and the read.
+        const fd = openSync(path, 'r');
+        try {
+          if (fstatSync(fd).size <= MAX_FILE_BYTES)
+            result = readFileSync(fd, 'utf8').split(/\r?\n/);
+        } finally {
+          closeSync(fd);
+        }
+      }
     } catch {
       result = null;
     }

@@ -65,6 +65,8 @@ function walk(
     const result: Record<string, unknown> = {};
     let count = 0;
     for (const key of Object.keys(source)) {
+      // Never copy keys that would reach a prototype.
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
       if (count >= limits.maxKeys) break;
       const normalized = walk(source[key], limits, depth - 1, seen);
       if (normalized !== undefined) {

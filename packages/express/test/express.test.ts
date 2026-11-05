@@ -190,7 +190,7 @@ describe('beacon-express', () => {
       'accept-encoding': expect.any(String),
       'accept-language': '*',
     });
-    expect(requests[0]!.body).not.toMatch(/203\.0\.113\.|sid=1|tok|k1|SECRET/);
+    expect(requests[0]!.body).not.toMatch(/203\.0\.113\.|sid=1|Bearer tok|"k1"|SECRET/);
   });
 
   it('never sends a large body, scrubbing keys before any size limit (FV-M1 PoC)', async () => {

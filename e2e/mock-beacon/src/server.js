@@ -52,7 +52,9 @@ export function parseBeaconAuth(header) {
   const out = {};
   for (const pair of header.slice(7).split(',')) {
     const index = pair.indexOf('=');
-    if (index > 0) out[pair.slice(0, index).trim()] = pair.slice(index + 1).trim();
+    const key = pair.slice(0, index).trim();
+    if (index > 0 && key !== '__proto__' && key !== 'constructor' && key !== 'prototype')
+      out[key] = pair.slice(index + 1).trim();
   }
   return out;
 }

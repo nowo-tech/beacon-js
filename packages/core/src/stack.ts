@@ -89,9 +89,15 @@ export function isInApp(absPath: string, options: FrameOptions): boolean {
   return !NOT_IN_APP.test(absPath) && !SDK_FRAME.test(absPath);
 }
 
+/** Cuts a URL at its first `?` or `#` (linear time). */
+export function stripQueryAndHash(url: string): string {
+  const cut = url.search(/[?#]/);
+  return cut === -1 ? url : url.slice(0, cut);
+}
+
 /** Strips origin, query, hash and a content-hash segment: `https://x/assets/index-3f9a1c2b.js?v=1` → `/assets/index.js`. */
 export function normalizeUrlFilename(absPath: string): string {
-  let path = absPath.replace(/[?#].*$/, '');
+  let path = stripQueryAndHash(absPath);
   path = path.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]*/i, '');
   return path.replace(/[-.][0-9a-f]{8,}(?=\.m?js$)/i, '');
 }
@@ -111,7 +117,7 @@ export function toStacktrace(
     .reverse()
     .map((frame) => {
       // Script URL queries and fragments can carry signatures (`?X-Amz-Signature=…`): never kept (§5).
-      const absPath = frame.abs_path.replace(/[?#].*$/, '');
+      const absPath = stripQueryAndHash(frame.abs_path);
       const out: StackFrame = {
         filename: options.normalizeFilename(absPath),
         abs_path: absPath,

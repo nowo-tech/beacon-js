@@ -60,7 +60,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: core, node, express (100 % coverage gate)
+        if: matrix.os == 'ubuntu-latest'
         run: pnpm --filter @nowo-tech/beacon-core --filter @nowo-tech/beacon-node --filter @nowo-tech/beacon-express test
+      # Windows checks behaviour (paths, file queue); POSIX-only branches (file modes, O_NOFOLLOW, symlinks) cannot
+      # be reached there, so the 100 % gate is enforced on Linux.
+      - name: core, node, express (Windows, no coverage gate)
+        if: matrix.os == 'windows-latest'
+        run: pnpm --filter @nowo-tech/beacon-core --filter @nowo-tech/beacon-node --filter @nowo-tech/beacon-express exec vitest run
       - name: mock Beacon + golden conformance
         if: matrix.os == 'ubuntu-latest'
         run: pnpm test:mock

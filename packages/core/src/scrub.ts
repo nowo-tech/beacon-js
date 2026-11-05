@@ -98,6 +98,8 @@ export function scrubObject(value: unknown, depth = 10): unknown {
   if (!isPlainObject(value)) return value;
   const out: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value)) {
+    // Never copy keys that would reach a prototype.
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
     out[key] = SENSITIVE_KEY.test(key) ? FILTERED : scrubObject(item, depth - 1);
   }
   return out;

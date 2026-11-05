@@ -34,6 +34,14 @@ describe('scrubber', () => {
     expect(scrubObject({ [key]: 'v', keep: 'k' })).toEqual({ [key]: FILTERED, keep: 'k' });
   });
 
+  it('never copies prototype keys', () => {
+    const out = scrubObject(
+      JSON.parse('{"__proto__":{"x":1},"constructor":1,"prototype":1,"a":1}'),
+    ) as object;
+    expect(out).toEqual({ a: 1 });
+    expect(Object.getPrototypeOf(out)).toBe(Object.prototype);
+  });
+
   it('walks arrays and stops at depth', () => {
     expect(scrubObject([{ token: 1 }])).toEqual([{ token: FILTERED }]);
     expect(scrubObject({ a: { token: 1 } }, 1)).toEqual({ a: { token: 1 } });

@@ -24,10 +24,10 @@ const NOFOLLOW = constants.O_NOFOLLOW ?? 0;
 const FILE_NAME = /^[0-9TZ-]+-[0-9a-f]{32}\.envelope$/;
 
 async function readNoFollow(path: string): Promise<string> {
-  const info = await lstat(path);
-  if (!info.isFile()) throw new Error('not a regular file');
+  // Checked on the open handle itself, so that nothing can be swapped between the check and the read.
   const handle = await open(path, constants.O_RDONLY | NOFOLLOW);
   try {
+    if (!(await handle.stat()).isFile()) throw new Error('not a regular file');
     return await handle.readFile('utf8');
   } finally {
     await handle.close();

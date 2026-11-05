@@ -46,6 +46,15 @@ describe('normalize', () => {
     expect(normalize({ p: shared, q: shared }, EXTRA_LIMITS)).toEqual({ p: { y: 1 }, q: { y: 1 } });
   });
 
+  it('never copies prototype keys', () => {
+    const input = JSON.parse(
+      '{"__proto__":{"polluted":1},"constructor":2,"prototype":3,"ok":4}',
+    ) as Record<string, unknown>;
+    const out = normalize(input, EXTRA_LIMITS) as Record<string, unknown>;
+    expect(out).toEqual({ ok: 4 });
+    expect(Object.getPrototypeOf(out)).toBe(Object.prototype);
+  });
+
   it('serialises errors and well-formed keys', () => {
     const error = Object.assign(new Error('boom'), { code: 7 });
     expect(normalize(error, EXTRA_LIMITS)).toMatchObject({
