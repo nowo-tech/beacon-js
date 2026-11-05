@@ -1,0 +1,58 @@
+name: Release
+
+# Disabled for publishing until the owner sets up the npm org and trusted publishing (see "Releasing" in
+# CONTRIBUTING.md). Today it only runs by hand and always as a dry run unless the repository variable
+# NPM_PUBLISH_ENABLED is 'true': it builds, packs, builds the release assets (delivery files, golden envelope tarball,
+# checksums) and uploads them as workflow artifacts.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (nothing is published). Publishing also needs vars.NPM_PUBLISH_ENABLED == true.'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm pack:check
+      - name: Golden set regenerates byte for byte and passes the mock server
+        run: |
+          pnpm golden:check
+          pnpm test:mock
+      - name: Release assets
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          cp packages/browser/dist/delivery/* release-assets/
+          tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -C fixtures/envelopes/golden -czf release-assets/golden-envelopes.tar.gz .
+          cd release-assets
+          sha256sum golden-envelopes.tar.gz > golden-envelopes.tar.gz.sha256
+          sha256sum beacon.min.js beacon.min.js.map beacon.esm.min.js beacon.esm.min.js.map golden-envelopes.tar.gz > SHA256SUMS
+          ls -la
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets
+          path: release-assets/
+      - name: Publish (dry run)
+        run: pnpm -r --filter "./packages/*" publish --dry-run --no-git-checks --access public
+      - name: Publish to npm (off until the owner enables it)
+        if: ${{ !inputs.dry_run && vars.NPM_PUBLISH_ENABLED == 'true' }}
+        run: pnpm -r --filter "./packages/*" publish --no-git-checks --access public --provenance
