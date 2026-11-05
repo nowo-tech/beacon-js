@@ -427,6 +427,25 @@ describe('Client transport results', () => {
     ]);
   });
 
+  it('re-arms the drain when it runs before the backoff deadline', async () => {
+    const queue = makeMemoryQueue(undefined, clock);
+    const { client, transport } = make(
+      { queue },
+      {},
+      { kind: 'retry', afterMs: 1000, reason: 'ratelimit' },
+    );
+    client.captureMessage('a', new Scope());
+    await settle(client);
+    now += 999;
+    await client.drainQueue(false);
+    expect(transport.requests).toHaveLength(1);
+    now += 1;
+    await vi.advanceTimersByTimeAsync(1000);
+    await settle(client);
+    expect(transport.requests).toHaveLength(2);
+    expect(await queue.size()).toBe(0);
+  });
+
   it('stops draining when a queued envelope fails again', async () => {
     const queue = makeMemoryQueue(undefined, clock);
     const { client, transport } = make(

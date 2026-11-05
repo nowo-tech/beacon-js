@@ -457,8 +457,12 @@ export class Client {
   ): Promise<SendOutcome> {
     const now = this.now();
     if (now < this.disabledUntil) return 'dropped';
-    if (now < this.blockedUntil)
-      return fromQueue ? 'queued' : this.enqueue(envelope, 'ratelimit_backoff');
+    if (now < this.blockedUntil) {
+      if (!fromQueue) return this.enqueue(envelope, 'ratelimit_backoff');
+      // A drain timer can fire a little before the deadline: try again at the deadline instead of stalling.
+      this.scheduleDrain(this.blockedUntil - now);
+      return 'queued';
+    }
     if (this.inFlight >= this.platform.inFlightCap) {
       if (fromQueue) return 'queued';
       this.discard('queue_overflow', envelope.category);

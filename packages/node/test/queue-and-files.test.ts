@@ -8,7 +8,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import type { QueuedEnvelope } from '@nowo-tech/beacon-core';
 import { makeFileQueue } from '../src/file-queue.js';
@@ -40,7 +41,9 @@ describe('file queue', () => {
       '1970-01-01T00-00-00-500Z-a.envelope',
       '1970-01-01T00-00-01-000Z-b.envelope',
     ]);
-    expect(statSync(join(dir, files[0]!)).mode & 0o777).toBe(0o600);
+    // POSIX permissions; Windows has no 0600 mode.
+    if (process.platform !== 'win32')
+      expect(statSync(join(dir, files[0]!)).mode & 0o777).toBe(0o600);
     const restarted = makeFileQueue({ type: 'file', dir, now: () => 2000 });
     expect((await restarted.peek())!.id).toBe('a');
     await restarted.remove('a');
@@ -93,12 +96,15 @@ describe('file queue', () => {
 });
 
 describe('filenames', () => {
-  const normalize = makeNodeFilenameNormalizer('/srv/app');
+  // A real absolute root, so that the test holds on POSIX and on Windows (drive letters, backslashes).
+  const root = resolve(tmpdir(), 'srv-app');
+  const normalize = makeNodeFilenameNormalizer(root);
   it('makes paths relative to the app root', () => {
-    expect(normalize('/srv/app/src/a.js')).toBe('src/a.js');
-    expect(normalize('file:///srv/app/src/b.mjs')).toBe('src/b.mjs');
-    expect(normalize('/other/lib.js')).toBe('/other/lib.js');
+    expect(normalize(join(root, 'src', 'a.js'))).toBe('src/a.js');
+    expect(normalize(pathToFileURL(join(root, 'src', 'b.mjs')).href)).toBe('src/b.mjs');
+    const other = resolve(root, '..', 'other', 'lib.js');
+    expect(normalize(other)).toBe(other.split(sep).join('/'));
     expect(normalize('node:internal/process')).toBe('node:internal/process');
-    expect(normalize('file://remote-host/x.js')).toBe('file://remote-host/x.js');
+    expect(normalize('file:///a%2Fb.js')).toBe('file:///a%2Fb.js');
   });
 });

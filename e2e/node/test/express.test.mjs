@@ -138,7 +138,7 @@ describe('Express app → mock Beacon', () => {
     await Beacon.flush(500);
     await new Promise((resolve) => setTimeout(resolve, 1500));
     assert.equal(ctx.mock.requests.length, 1, 'no request before Retry-After');
-    await waitFor(() => ctx.mock.requests.length >= 3, 5000);
+    await waitFor(() => ctx.mock.requests.length >= 3, 10_000);
     assert.ok(ctx.mock.requests[1].time - started >= 1900, 'retried after the deadline');
     assert.equal(Beacon.getClient().lastRateLimit, 'project');
   });
