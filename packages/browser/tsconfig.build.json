@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist/types",
+    "emitDeclarationOnly": true,
+    "paths": {
+      "@nowo-tech/beacon-browser": ["./src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

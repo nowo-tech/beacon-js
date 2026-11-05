@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "types": ["node"],
+    "paths": {
+      "@nowo-tech/beacon-core": ["../core/src/index.ts"],
+      "@nowo-tech/beacon-browser": ["./src/index.ts"]
+    }
+  },
+  "include": ["src", "test", "vitest.config.ts"]
+}

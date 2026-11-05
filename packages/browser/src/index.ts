@@ -1,0 +1,14 @@
+export * from '@nowo-tech/beacon-core';
+export { BROWSER_SDK_NAME, browserPlatform, defaultBrowserIntegrations, init } from './init.js';
+export type { BrowserOptions } from './init.js';
+export { breadcrumbsIntegration, selectorOf } from './integrations/breadcrumbs.js';
+export type { BreadcrumbsOptions, ConsoleLevel } from './integrations/breadcrumbs.js';
+export { browserContextIntegration, parseUserAgent } from './integrations/browser-context.js';
+export { errorFromEvent, globalHandlersIntegration } from './integrations/global-handlers.js';
+export { httpErrorsIntegration } from './integrations/http-errors.js';
+export type { HttpErrorsOptions, StatusRange } from './integrations/http-errors.js';
+export { lifecycleIntegration } from './integrations/lifecycle.js';
+export { resourceErrorsIntegration } from './integrations/resource-errors.js';
+export type { ResourceErrorsOptions } from './integrations/resource-errors.js';
+export { compressionStreamGzip, makeBrowserTransport } from './transport.js';
+export type { BrowserTransportOptions } from './transport.js';
