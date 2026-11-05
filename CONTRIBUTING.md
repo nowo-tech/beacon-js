@@ -36,8 +36,9 @@ These are repository settings, so they are not in the code; set them before `NPM
 - **Branch protection on `main`**: pull requests required, the CI checks required, no force pushes, no deletion.
 - The `Release` workflow already refuses to run from any branch but `main` (`if: github.ref == 'refs/heads/main'`).
 - Bind each npm trusted publisher to **both** `release.yml` and the `npm-publish` environment.
-- Optional hardening: move the publish step to a separate job that downloads the packed tarballs and does not run
-  `pnpm install`, so that `id-token: write` is never available to dependency code.
+- The `Release` workflow keeps credentials away from dependency code: the `build` job (install, build, pack) has
+  no npm credential and no `id-token: write`; the `publish` job only downloads the packed tarballs, checks their
+  SHA-256, installs npm by exact version and publishes. It alone uses the `npm-publish` environment.
 
 ## Releasing
 

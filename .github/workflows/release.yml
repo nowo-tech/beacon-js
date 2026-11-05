@@ -1,10 +1,10 @@
 name: Release
 
-# Runs by hand only, and is a dry run unless both `dry_run` is false and the repository variable NPM_PUBLISH_ENABLED
-# is 'true'. It builds, packs, builds the release assets (delivery files, golden envelope tarball, checksums) and
-# uploads them as workflow artifacts. Publishing authenticates with the optional `NPM_TOKEN` secret of the
-# `npm-publish` environment (first publish only: trusted publishing needs the packages to exist), and otherwise with
-# npm trusted publishing (OIDC). See "Releasing" in CONTRIBUTING.md.
+# Runs by hand only, from main or a v* tag. Two jobs:
+# - `build` installs, builds, checks and packs. It has no npm credential and no `id-token: write`.
+# - `publish` (only when `dry_run` is false and the repository variable NPM_PUBLISH_ENABLED is 'true') downloads the
+#   packed tarballs, runs no `pnpm install` and no dependency code, and is the only job with `id-token: write` and
+#   the `npm-publish` environment (reviewers, optional bootstrap NPM_TOKEN). See "Releasing" in CONTRIBUTING.md.
 on:
   workflow_dispatch:
     inputs:
@@ -16,15 +16,16 @@ on:
 permissions:
   contents: read
 
+env:
+  # npm >= 11.5 does trusted publishing (OIDC) from GitHub Actions. Installed by exact version, never through npx.
+  NPM_VERSION: 11.21.2
+
 jobs:
-  release:
-    # Only from main or a v* tag (FV-L5): a dispatch from any other ref skips the job entirely.
+  build:
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    environment: npm-publish
     permissions:
       contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -51,26 +52,51 @@ jobs:
           sha256sum golden-envelopes.tar.gz > golden-envelopes.tar.gz.sha256
           sha256sum beacon.min.js beacon.min.js.map beacon.esm.min.js beacon.esm.min.js.map golden-envelopes.tar.gz > SHA256SUMS
           ls -la
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: release-assets
-          path: release-assets/
-      - name: Pack the packages (workspace versions resolved), in dependency order
+      - name: Pack the packages (workspace versions resolved)
         run: |
           set -euo pipefail
           mkdir -p npm-tarballs
           for pkg in core browser node express; do
             (cd "packages/$pkg" && pnpm pack --pack-destination ../../npm-tarballs)
           done
-          ls -la npm-tarballs
-      - name: Publish (dry run)
+          (cd npm-tarballs && sha256sum *.tgz > SHA256SUMS && ls -la)
+      - name: Publish (dry run, runner npm, no credentials)
         run: |
           set -euo pipefail
           for pkg in core browser node express; do
-            npx -y npm@11.21.2 publish --dry-run --access public npm-tarballs/nowo-tech-beacon-$pkg-*.tgz
+            npm publish --dry-run --access public npm-tarballs/nowo-tech-beacon-$pkg-*.tgz
           done
-      - name: Publish to npm (token for the first publish, otherwise trusted publishing)
-        if: ${{ !inputs.dry_run && vars.NPM_PUBLISH_ENABLED == 'true' }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets
+          path: release-assets/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-tarballs
+          path: npm-tarballs/
+
+  publish:
+    needs: build
+    if: ${{ !inputs.dry_run && vars.NPM_PUBLISH_ENABLED == 'true' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: npm-tarballs
+          path: npm-tarballs
+      - name: Verify the tarballs from the build job
+        working-directory: npm-tarballs
+        run: sha256sum -c SHA256SUMS
+      - name: Install npm (exact version)
+        run: npm install --global --ignore-scripts "npm@${NPM_VERSION}" && npm --version
+      - name: Publish to npm (bootstrap token if present, otherwise trusted publishing)
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
@@ -83,8 +109,7 @@ jobs:
             : > "${RUNNER_TEMP}/.npmrc"
           fi
           export NPM_CONFIG_USERCONFIG="${RUNNER_TEMP}/.npmrc"
-          # npm >= 11.5 does trusted publishing from GitHub Actions; --provenance in both modes.
+          trap 'rm -f "${RUNNER_TEMP}/.npmrc"' EXIT
           for pkg in core browser node express; do
-            npx -y npm@11.21.2 publish --provenance --access public npm-tarballs/nowo-tech-beacon-$pkg-*.tgz
+            npm publish --provenance --access public npm-tarballs/nowo-tech-beacon-$pkg-*.tgz
           done
-          rm -f "${RUNNER_TEMP}/.npmrc"
