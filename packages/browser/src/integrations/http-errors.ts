@@ -28,7 +28,7 @@ function matchesStatus(status: number, ranges: StatusRange[]): boolean {
 }
 
 function requestUrl(input: RequestInfo | URL): string {
-  return typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  return String(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
 }
 
 /**
@@ -90,17 +90,30 @@ export function httpErrorsIntegration(options: HttpErrorsOptions = {}): Integrat
         ...args: [RequestInfo | URL, RequestInit?]
       ): Promise<Response> {
         const result = originalFetch.apply(this, args);
-        const [input, init] = args;
-        const url = requestUrl(input);
-        if (!isBeacon(url)) {
-          const method = (
-            init?.method ?? (input instanceof Request ? input.method : 'GET')
-          ).toUpperCase();
-          const start = now();
-          result.then(
-            (response) => record('fetch', method, url, start, response.status),
-            () => record('fetch', method, url, start),
-          );
+        // The SDK never changes what the app sees: any failure in the instrumentation is swallowed, and the
+        // original promise (resolution or rejection) is returned as is.
+        try {
+          const [input, init] = args;
+          const url = requestUrl(input);
+          if (!isBeacon(url)) {
+            const method = String(
+              init?.method ?? (input instanceof Request ? input.method : 'GET'),
+            ).toUpperCase();
+            const start = now();
+            const safeRecord = (status?: number): void => {
+              try {
+                record('fetch', method, url, start, status);
+              } catch {
+                // never surfaces as an unhandled rejection
+              }
+            };
+            result.then(
+              (response) => safeRecord(response.status),
+              () => safeRecord(),
+            );
+          }
+        } catch {
+          // odd inputs (no URL): not recorded
         }
         return result;
       };
@@ -113,19 +126,31 @@ export function httpErrorsIntegration(options: HttpErrorsOptions = {}): Integrat
         this: XMLHttpRequest & { [XHR_INFO]?: XhrInfo },
         ...args: Parameters<typeof originalOpen>
       ) {
-        this[XHR_INFO] = { method: String(args[0]).toUpperCase(), url: String(args[1]) };
+        try {
+          this[XHR_INFO] = { method: String(args[0]).toUpperCase(), url: String(args[1]) };
+        } catch {
+          // not recorded
+        }
         return originalOpen.apply(this, args);
       } as typeof originalOpen;
       proto.send = function (
         this: XMLHttpRequest & { [XHR_INFO]?: XhrInfo },
         ...args: Parameters<typeof originalSend>
       ) {
-        const info = this[XHR_INFO];
-        if (info && !isBeacon(info.url)) {
-          const start = now();
-          this.addEventListener('loadend', () =>
-            record('xhr', info.method, info.url, start, this.status || undefined),
-          );
+        try {
+          const info = this[XHR_INFO];
+          if (info && !isBeacon(info.url)) {
+            const start = now();
+            this.addEventListener('loadend', () => {
+              try {
+                record('xhr', info.method, info.url, start, this.status || undefined);
+              } catch {
+                // never surfaces in the app
+              }
+            });
+          }
+        } catch {
+          // not recorded
         }
         return originalSend.apply(this, args);
       };

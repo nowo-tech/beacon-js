@@ -1,5 +1,8 @@
 import {
   getCurrentScope,
+  maskCredentials,
+  normalize,
+  scrubObject,
   scrubUrl,
   type Client,
   type Integration,
@@ -37,14 +40,14 @@ export function selectorOf(element: Element | null): string {
   return parts.join(' > ');
 }
 
+/** Object arguments go through the key scrubber before they become text (FV-L6). */
 function stringify(value: unknown): string {
   if (typeof value === 'string') return value;
-  try {
-    return JSON.stringify(value) ?? String(value);
-  } catch {
-    return String(value);
-  }
+  if (value === null || typeof value !== 'object') return String(value);
+  return JSON.stringify(scrubObject(normalize(value, CONSOLE_LIMITS)));
 }
+
+const CONSOLE_LIMITS = { depth: 3, maxKeys: 50, maxArray: 50, maxString: 500 };
 
 function relative(url: string): string {
   return scrubUrl(url.replace(location.origin, ''));
@@ -62,7 +65,15 @@ export function breadcrumbsIntegration(options: BreadcrumbsOptions = {}): Integr
       for (const level of options.console === false ? [] : (options.console ?? ['warn', 'error'])) {
         const original = console[level];
         const wrapped = function (this: Console, ...args: unknown[]): void {
-          const message = args.map(stringify).join(' ');
+          try {
+            record(args);
+          } catch {
+            // the app's console call always goes through
+          }
+          original.apply(this, args);
+        };
+        const record = (args: unknown[]): void => {
+          const message = maskCredentials(args.map(stringify).join(' '));
           if (!message.startsWith('[beacon]')) {
             add({
               category: 'console',
@@ -76,7 +87,6 @@ export function breadcrumbsIntegration(options: BreadcrumbsOptions = {}): Integr
               message,
             });
           }
-          original.apply(this, args);
         };
         console[level] = wrapped;
         cleanups.push(() => {

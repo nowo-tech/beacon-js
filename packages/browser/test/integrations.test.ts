@@ -238,6 +238,51 @@ describe('HttpErrors', () => {
     ]);
   });
 
+  it('never changes what fetch and XHR return when instrumentation fails (FV-L4)', async () => {
+    const response = new Response(null, { status: 503 });
+    const original = vi.fn(() => Promise.resolve(response));
+    vi.stubGlobal('fetch', original);
+    const { client, captureException } = fakeClient();
+    captureException.mockImplementation(() => {
+      throw new Error('sdk');
+    });
+    install(httpErrorsIntegration(), client);
+    expect(await fetch('https://api.test/down')).toBe(response);
+    expect(await (fetch as unknown as (input: unknown) => Promise<Response>)({ odd: true })).toBe(
+      response,
+    );
+    expect(await (fetch as unknown as (input: unknown) => Promise<Response>)(undefined)).toBe(
+      response,
+    );
+    const rejected = new TypeError('Failed to fetch');
+    original.mockImplementationOnce(() => Promise.reject(rejected));
+    await expect(fetch('https://api.test/offline')).rejects.toBe(rejected);
+    await tick();
+    const xhr = new XMLHttpRequest();
+    const odd = {
+      toString: () => {
+        throw new Error('odd');
+      },
+    };
+    expect(() =>
+      XMLHttpRequest.prototype.open.call(xhr, odd as unknown as string, '/package.json', true),
+    ).toThrow();
+    xhr.open('GET', 'http://127.0.0.1:1/unreachable');
+    await new Promise<void>((resolve) => {
+      xhr.addEventListener('loadend', () => setTimeout(resolve, 0));
+      xhr.send();
+    });
+    const broken = new XMLHttpRequest();
+    broken.open('GET', '/package.json');
+    Object.defineProperty(broken, 'addEventListener', {
+      value: () => {
+        throw new Error('sdk');
+      },
+    });
+    expect(() => broken.send()).not.toThrow();
+    broken.abort();
+  });
+
   it('honours custom status ranges and restores fetch', async () => {
     const original = vi.fn(() => Promise.resolve(new Response(null, { status: 404 })));
     vi.stubGlobal('fetch', original);
@@ -302,7 +347,7 @@ describe('Breadcrumbs', () => {
     console.log('l');
     console.warn('[beacon] internal');
     expect(addBreadcrumb.mock.calls.map(([crumb]) => [crumb.level, crumb.message])).toEqual([
-      ['warning', 'careful {"a":1} undefined [object Object]'],
+      ['warning', 'careful {"a":1} undefined {"self":"[Circular]"}'],
       ['error', 'bad'],
       ['info', 'i'],
       ['debug', 'd'],
@@ -312,6 +357,33 @@ describe('Breadcrumbs', () => {
     integration.teardown!();
     expect(console.warn).toBe(spy);
     breadcrumbsIntegration({ console: false, dom: false, navigation: false }).setup!(client);
+  });
+
+  it('scrubs console arguments: object keys, credentials and card numbers (FV-L6)', () => {
+    const { client, addBreadcrumb } = fakeClient();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    install(breadcrumbsIntegration({ dom: false, navigation: false }), client);
+    console.warn(
+      'login',
+      { user: 'u', password: 'hunter2', nested: { apiKey: 'k1' } },
+      'card 4111 1111 1111 1111',
+      null,
+      7,
+    );
+    expect(addBreadcrumb.mock.calls[0]![0].message).toBe(
+      'login {"user":"u","password":"[Filtered]","nested":{"apiKey":"[Filtered]"}} card [Filtered] null 7',
+    );
+  });
+
+  it('always calls the original console, even when recording fails (FV-L4)', () => {
+    const { client, addBreadcrumb } = fakeClient();
+    addBreadcrumb.mockImplementation(() => {
+      throw new Error('sdk');
+    });
+    const original = vi.spyOn(console, 'error').mockImplementation(() => {});
+    install(breadcrumbsIntegration({ dom: false, navigation: false }), client);
+    expect(() => console.error('still logged')).not.toThrow();
+    expect(original).toHaveBeenCalledWith('still logged');
   });
 
   it('records clicks and key presses with selectors only', () => {
