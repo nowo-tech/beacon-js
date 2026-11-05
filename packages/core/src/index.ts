@@ -16,10 +16,15 @@ export { exceptionsFromError } from './exception.js';
 export { expandFingerprint, groupingInputs, normalizeGroupingValue } from './fingerprint.js';
 export { normalize } from './normalize.js';
 export type { NormalizeLimits } from './normalize.js';
-export { IP_HEADERS, stripIp } from './privacy.js';
+export { IP_HEADER_PATTERN, IP_HEADERS, stripIp } from './privacy.js';
 export { makeMemoryQueue } from './queue.js';
 export type { EnvelopeQueue, QueuedEnvelope, QueueLimits } from './queue.js';
-export { backoffDelay, parseRetryAfter, parseSentryRateLimits } from './ratelimit.js';
+export {
+  backoffDelay,
+  MAX_RETRY_AFTER_MS,
+  parseRetryAfter,
+  parseSentryRateLimits,
+} from './ratelimit.js';
 export { Scope } from './scope.js';
 export * from './scrub.js';
 export { isInApp, normalizeUrlFilename, parseStack, toStacktrace } from './stack.js';
@@ -46,6 +51,8 @@ export type {
 } from './types.js';
 export {
   byteLength,
+  EVENT_ID,
+  MAX_TIMEOUT_MS,
   isErrorLike,
   matchesAny,
   schedule,

@@ -2,6 +2,8 @@ export const BACKOFF_BASE_MS = 1000;
 export const BACKOFF_MAX_MS = 5 * 60 * 1000;
 export const DEFAULT_RETRY_AFTER_MS = 60 * 1000;
 export const QUOTA_MIN_MS = 60 * 60 * 1000;
+/** No server answer can block the transport for longer than this (contract §4.3, FV-L1). */
+export const MAX_RETRY_AFTER_MS = 24 * 60 * 60 * 1000;
 
 /** Parses `Retry-After` (integer seconds, or an HTTP-date). Returns milliseconds, or `undefined` when invalid. */
 export function parseRetryAfter(

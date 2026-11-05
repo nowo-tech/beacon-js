@@ -65,4 +65,23 @@ describe('DSN parser', () => {
     expect((error as Error).message).not.toContain('test-secret-not-real');
     expect((error as Error).message).not.toContain(input);
   });
+
+  it.each([
+    [
+      'https://pk\r\nX-Injected: 1@beacon.test/00000000-0000-4000-8000-000000000001',
+      'control characters',
+    ],
+    ['https://pk%0D%0A@beacon.test/00000000-0000-4000-8000-000000000001', 'keys may only contain'],
+    [
+      'https://pk:s%E0%A4%A@beacon.test/00000000-0000-4000-8000-000000000001',
+      'keys may only contain',
+    ],
+    [
+      'https://pk:sec ret@beacon.test/00000000-0000-4000-8000-000000000001',
+      'keys may only contain',
+    ],
+  ])('refuses hostile keys %j with a BeaconConfigError', (input, reason) => {
+    expect(() => defaultDsnParser.parse(input)).toThrow(BeaconConfigError);
+    expect(() => defaultDsnParser.parse(input)).toThrow(reason);
+  });
 });

@@ -66,9 +66,16 @@ export function matchesAny(value: string, patterns: ReadonlyArray<string | RegEx
   );
 }
 
-/** setTimeout that never keeps a Node process alive. */
+/** The largest delay `setTimeout` accepts (about 24.8 days). */
+export const MAX_TIMEOUT_MS = 2 ** 31 - 1;
+
+/** Beacon's event id format: 32 lowercase hex characters. */
+export const EVENT_ID = /^[0-9a-f]{32}$/;
+
+/** setTimeout that never keeps a Node process alive, with the delay clamped to what timers accept. */
 export function schedule(fn: () => void, ms: number): ReturnType<typeof setTimeout> {
-  const timer = setTimeout(fn, ms);
+  // Timers overflow above 2^31 - 1 ms and would fire at once, in a loop.
+  const timer = setTimeout(fn, Math.min(Math.max(0, ms), MAX_TIMEOUT_MS));
   (timer as { unref?: () => void }).unref?.();
   return timer;
 }

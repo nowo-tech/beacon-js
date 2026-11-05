@@ -31,6 +31,7 @@ export interface DsnParser {
 export const BROWSER_KEY_PREFIX = 'bk_';
 
 const HTTP_HOSTS = new Set(['localhost', '127.0.0.1', 'host.docker.internal']);
+const KEY = /^[A-Za-z0-9_-]+$/;
 const PROJECT_ID = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d+)$/i;
 
 function fail(reason: string): never {
@@ -43,6 +44,9 @@ function fail(reason: string): never {
  */
 export const defaultDsnParser: DsnParser = {
   parse(dsn: string): ParsedDsn {
+    // Control characters are exactly what this check is about (CR/LF header injection).
+    // eslint-disable-next-line no-control-regex
+    if (/[\0-\x1f\x7f]/.test(dsn)) fail('control characters (CR, LF, …) are not allowed');
     let url: URL;
     try {
       url = new URL(dsn);
@@ -54,9 +58,12 @@ export const defaultDsnParser: DsnParser = {
     if (protocol === 'http' && !HTTP_HOSTS.has(url.hostname))
       fail('http is allowed for local hosts only');
     if (url.search || url.hash) fail('query strings and fragments are not allowed');
-    const publicKey = decodeURIComponent(url.username);
+    const publicKey = url.username;
     if (!publicKey) fail('the public key is missing');
-    const secret = url.password ? decodeURIComponent(url.password) : undefined;
+    // Keys and secrets are plain tokens: no percent-escapes, so nothing decodes into a header-breaking character.
+    if (!KEY.test(publicKey) || (url.password && !KEY.test(url.password)))
+      fail('keys may only contain A-Z, a-z, 0-9, _ and -');
+    const secret = url.password || undefined;
     const segments = url.pathname.split('/').filter(Boolean);
     const projectId = segments.pop();
     if (!projectId || !PROJECT_ID.test(projectId)) fail('the project id must be a UUID');

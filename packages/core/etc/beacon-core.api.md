@@ -304,6 +304,9 @@ export interface EnvelopeQueue {
 }
 
 // @public
+export const EVENT_ID: RegExp;
+
+// @public
 export interface EventHint {
     // (undocumented)
     data?: Record<string, unknown>;
@@ -398,6 +401,9 @@ export interface Integration {
 }
 
 // @public
+export const IP_HEADER_PATTERN: RegExp;
+
+// @public
 export const IP_HEADERS: readonly string[];
 
 // @public (undocumented)
@@ -426,6 +432,12 @@ export function matchesAny(value: string, patterns: ReadonlyArray<string | RegEx
 
 // @public
 export const MAX_COMPRESSION_RATIO = 50;
+
+// @public
+export const MAX_RETRY_AFTER_MS: number;
+
+// @public
+export const MAX_TIMEOUT_MS: number;
 
 // @public
 export function maybeCompress(body: string, compress: Compressor | undefined, minBytes: number): Promise<{

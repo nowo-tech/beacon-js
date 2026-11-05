@@ -110,9 +110,11 @@ export function toStacktrace(
     .slice(start)
     .reverse()
     .map((frame) => {
+      // Script URL queries and fragments can carry signatures (`?X-Amz-Signature=…`): never kept (§5).
+      const absPath = frame.abs_path.replace(/[?#].*$/, '');
       const out: StackFrame = {
-        filename: options.normalizeFilename(frame.abs_path),
-        abs_path: frame.abs_path,
+        filename: options.normalizeFilename(absPath),
+        abs_path: absPath,
         function: frame.function,
         in_app: isInApp(frame.abs_path, options),
       };

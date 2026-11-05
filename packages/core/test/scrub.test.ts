@@ -145,4 +145,26 @@ describe('scrubber', () => {
     expect(defaultScrubber({ request: {} }).request).toEqual({});
     expect(defaultScrubber({})).toEqual({});
   });
+
+  it('strips URL userinfo and credential-looking values under any name', () => {
+    expect(scrubUrl('https://alice:hunter2@api.test/x?q=1')).toBe('https://api.test/x?q=1');
+    expect(scrubUrl('https://alice@api.test/')).toBe('https://api.test/');
+    expect(scrubUrl('/x?q=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2ln&page=2')).toBe(
+      `/x?q=${FILTERED}&page=2`,
+    );
+    expect(scrubUrl('/x?k=sk_fake_abcdefgh1234&v=%E0%A4%A')).toBe(`/x?k=${FILTERED}&v=%E0%A4%A`);
+    expect(scrubUrl('mailto:a@b.test')).toBe('mailto:a@b.test');
+  });
+
+  it('masks prefixed keys and Luhn-valid card numbers, not timestamps', () => {
+    expect(maskCredentials('key sk_fake_abcdefgh1234 pk_test_00000000 ghp_abcdefghij')).toBe(
+      `key ${FILTERED} ${FILTERED} ${FILTERED}`,
+    );
+    expect(
+      maskCredentials('card 4111 1111 1111 1111 or 4111-1111-1111-1111 or 4111111111111111'),
+    ).toBe(`card ${FILTERED} or ${FILTERED} or ${FILTERED}`);
+    expect(maskCredentials('at 1730800000123 id 4111111111111112')).toBe(
+      'at 1730800000123 id 4111111111111112',
+    );
+  });
 });

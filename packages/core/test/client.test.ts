@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { beaconServerAuth } from '../src/auth.js';
+import { BeaconConfigError } from '../src/dsn.js';
 import { Client, type ClientOptions, type Integration } from '../src/client.js';
 import { makeMemoryQueue } from '../src/queue.js';
 import { Scope } from '../src/scope.js';
@@ -337,6 +338,62 @@ describe('Client capture pipeline', () => {
     client.captureMessage('x'.repeat(5000), new Scope());
     await settle(client);
     expect(transport.requests.filter((r) => r.category === 'error')).toHaveLength(0);
+  });
+});
+
+describe('Client hardening (FV-L1, FV-L3, FV-L4, FV-I2)', () => {
+  it('clamps a huge Retry-After to 24 h and never arms an overflowing timer', async () => {
+    const spy = vi.spyOn(globalThis, 'setTimeout');
+    const queue = makeMemoryQueue(undefined, clock);
+    const { client, transport } = make(
+      { queue },
+      {},
+      { kind: 'retry', afterMs: 99_999_999_999_000, reason: 'ratelimit' },
+    );
+    client.captureMessage('a', new Scope());
+    await settle(client);
+    expect(Math.max(...spy.mock.calls.map((call) => Number(call[1] ?? 0)))).toBeLessThanOrEqual(
+      2 ** 31 - 1,
+    );
+    now += 24 * 3600 * 1000 + 1;
+    await client.drainQueue(false);
+    expect(transport.requests).toHaveLength(2);
+  });
+
+  it('replaces event ids that are not 32 lowercase hex characters', async () => {
+    const { client, transport } = make({ generateEventId: () => '../../escape' });
+    const id = client.captureEvent(
+      { event_id: '../../../../fv-escaped', message: 'x' },
+      new Scope(),
+    );
+    expect(id).toMatch(/^[0-9a-f]{32}$/);
+    expect(client.captureMessage('y', new Scope())).toMatch(/^[0-9a-f]{32}$/);
+    await settle(client);
+    expect(transport.requests.map((r) => r.eventId)).toEqual([
+      id,
+      expect.stringMatching(/^[0-9a-f]{32}$/),
+    ]);
+  });
+
+  it('never throws for a hostile error object', async () => {
+    const { client, transport } = make();
+    const hostile = new Proxy(new Error('x'), {
+      get(_target, key) {
+        if (key === 'name' || key === 'message') return 'x';
+        throw new Error('getter');
+      },
+    });
+    expect(() => client.captureException(hostile, new Scope())).not.toThrow();
+    await settle(client);
+    expect(eventOf(transport.requests[0]!)['exception'].values[0].value).toBe(
+      '[unserializable error]',
+    );
+  });
+
+  it('refuses a DSN with a BeaconConfigError on throwing platforms', () => {
+    expect(() => make({}, { validateDsn: () => 'nope', onConfigError: 'throw' })).toThrow(
+      BeaconConfigError,
+    );
   });
 });
 

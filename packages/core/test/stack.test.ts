@@ -121,7 +121,7 @@ describe('frames', () => {
     const frames = stacktrace.frames;
     expect(frames[frames.length - 1]).toEqual({
       filename: '/assets/index.js',
-      abs_path: 'https://app.test/assets/index-3f9a1c2b.js?v=1',
+      abs_path: 'https://app.test/assets/index-3f9a1c2b.js',
       function: 'handleClick',
       in_app: true,
       lineno: 10,
@@ -185,5 +185,13 @@ describe('frames', () => {
     expect(limited.frames[31]!.function).toBe('f31');
     expect(limited.frames[32]!.function).toBe('f38');
     expect(limitFrames(frames.slice(0, 3)).frames_omitted).toBeUndefined();
+  });
+
+  it('drops the query and fragment of frame URLs (signatures)', () => {
+    const frames = toStacktrace(
+      [{ function: 'f', abs_path: 'https://cdn.test/app.js?X-Amz-Signature=abc123#x', lineno: 1 }],
+      options,
+    )!.frames;
+    expect(frames[0]).toMatchObject({ abs_path: 'https://cdn.test/app.js', filename: '/app.js' });
   });
 });

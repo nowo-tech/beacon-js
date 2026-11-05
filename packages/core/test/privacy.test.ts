@@ -35,4 +35,30 @@ describe('stripIp', () => {
     for (let i = 0; i < 25; i++) deep = { n: deep };
     expect(JSON.stringify(stripIp({ extra: deep }))).toContain('{{auto}}');
   });
+
+  it('removes every client-IP header on common hosts and proxies, and remote_addr in any case', () => {
+    const headers = Object.fromEntries(
+      [
+        'X-Original-Forwarded-For',
+        'X-Cluster-Client-IP',
+        'Fastly-Client-IP',
+        'X-Vercel-Forwarded-For',
+        'CF-Pseudo-IPv4',
+        'CF-IPCountry',
+        'X-Envoy-External-Address',
+        'X-Appengine-User-Ip',
+        'X-Client-IP',
+        'Client-Ip',
+        'Accept',
+      ].map((name) => [name, '198.51.100.7']),
+    );
+    const event = stripIp({
+      request: {
+        headers,
+        env: { remote_addr: '198.51.100.7', REMOTE_ADDR: 'x', Remote_Addr: 'y', PATH: '/bin' },
+      },
+    });
+    expect(event.request!.headers).toEqual({ Accept: '198.51.100.7' });
+    expect(event.request!.env).toEqual({ PATH: '/bin' });
+  });
 });

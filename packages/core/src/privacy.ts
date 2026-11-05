@@ -11,6 +11,14 @@ export const IP_HEADERS: readonly string[] = [
   'x-client-ip',
 ];
 
+/**
+ * Any header that can carry a client address on common hosts and proxies (`X-Original-Forwarded-For`,
+ * `X-Cluster-Client-IP`, `Fastly-Client-IP`, `X-Vercel-Forwarded-For`, `CF-Pseudo-IPv4`, `X-Envoy-External-Address`,
+ * `X-Appengine-User-Ip`, …). Removed in addition to {@link IP_HEADERS}.
+ */
+export const IP_HEADER_PATTERN =
+  /forwarded|client-?ip|real-?ip|(?:^|-)ip(?:v[46])?$|^cf-|^fastly-|^x-vercel-|external-address|true-client/i;
+
 const AUTO = '{{auto}}';
 
 function dropAuto(value: unknown, depth: number): unknown {
@@ -33,10 +41,14 @@ export function stripIp(event: BeaconEvent): BeaconEvent {
   if (event.user) delete event.user.ip_address;
   const request = event.request;
   if (request) {
-    if (request.env) delete request.env['REMOTE_ADDR'];
+    if (request.env) {
+      for (const name of Object.keys(request.env))
+        if (/^remote_addr$/i.test(name)) delete request.env[name];
+    }
     if (request.headers) {
       for (const name of Object.keys(request.headers)) {
-        if (IP_HEADERS.includes(name.toLowerCase())) delete request.headers[name];
+        if (IP_HEADERS.includes(name.toLowerCase()) || IP_HEADER_PATTERN.test(name))
+          delete request.headers[name];
       }
     }
   }

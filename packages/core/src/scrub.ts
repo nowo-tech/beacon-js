@@ -22,10 +22,26 @@ export const SENSITIVE_KEY =
   /pass(word|wd)?|secret|token|api[-_]?key|auth|credential|session|cookie|csrf|xsrf|private[-_]?key|card|cvv|iban|ssn/i;
 const SENSITIVE_QUERY = /^(?:code|state|access_token|id_token|refresh_token|sig|signature)$/i;
 
+function luhn(text: string): boolean {
+  let sum = 0;
+  const digits = text.replace(/\D/g, '');
+  for (let i = 0; i < digits.length; i++) {
+    let digit = Number(digits[digits.length - 1 - i]);
+    if (i % 2) digit = digit * 2 > 9 ? digit * 2 - 9 : digit * 2;
+    sum += digit;
+  }
+  return sum % 10 === 0;
+}
+
 const CREDENTIAL_PATTERNS: ReadonlyArray<[RegExp, (match: string) => string]> = [
   [/eyJ[\w-]+\.[\w-]+\.[\w-]*/g, () => FILTERED],
   [/\bBearer\s+[\w.~+/-]+=*/gi, () => `Bearer ${FILTERED}`],
   [/\bbk_\w+/g, () => FILTERED],
+  // Prefixed keys and tokens (`sk_live_…`, `pk_test_…`, `ghp_…`), whatever surrounds them.
+  [/\b(?:sk|pk|rk|ghp|gho|xox[abpr])[-_]\w{8,}/g, () => FILTERED],
+  // Card-number-like runs: 13 to 19 digits (optionally grouped with spaces or dashes) that pass the Luhn check, so
+  // that timestamps and ids stay readable.
+  [/\b\d(?:[ -]?\d){12,18}\b/g, (match) => (luhn(match) ? FILTERED : match)],
   // 32+ character hex or base64url runs that mix letters and digits (secrets, keys, signatures).
   [
     /[A-Za-z0-9_-]{32,}/g,
@@ -33,34 +49,43 @@ const CREDENTIAL_PATTERNS: ReadonlyArray<[RegExp, (match: string) => string]> = 
   ],
 ];
 
-/** Masks values that look like credentials (JWTs, bearer tokens, `bk_` keys, long secrets). */
+/** Masks values that look like credentials: JWTs, bearer tokens, `bk_`/`sk_`-like keys, long secrets, card numbers. */
 export function maskCredentials(text: string): string {
   let out = text;
   for (const [pattern, replace] of CREDENTIAL_PATTERNS) out = out.replace(pattern, replace);
   return out;
 }
 
+function decode(text: string): string {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
+  }
+}
+
 function isSensitiveQueryName(name: string): boolean {
   return SENSITIVE_KEY.test(name) || SENSITIVE_QUERY.test(name);
 }
 
-/** Replaces sensitive query values with `[Filtered]` and drops the fragment. */
+/**
+ * Removes `user:pass@`, replaces query values with `[Filtered]` when the name is sensitive or the value looks like
+ * a credential, and drops the fragment.
+ */
 export function scrubUrl(url: string): string {
-  const withoutHash = url.split('#')[0]!;
+  const withoutHash = String(url)
+    .split('#')[0]!
+    .replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/?#]*@/i, '$1');
   const q = withoutHash.indexOf('?');
   if (q === -1) return withoutHash;
   const query = withoutHash
     .slice(q + 1)
     .split('&')
     .map((pair) => {
-      const name = pair.split('=')[0]!;
-      let decoded = name;
-      try {
-        decoded = decodeURIComponent(name);
-      } catch {
-        // keep the raw name
-      }
-      return isSensitiveQueryName(decoded) ? `${name}=${FILTERED}` : pair;
+      const [name, ...rest] = pair.split('=');
+      const value = decode(rest.join('='));
+      const sensitive = isSensitiveQueryName(decode(name!)) || maskCredentials(value) !== value;
+      return sensitive ? `${name}=${FILTERED}` : pair;
     })
     .join('&');
   return `${withoutHash.slice(0, q + 1)}${query}`;

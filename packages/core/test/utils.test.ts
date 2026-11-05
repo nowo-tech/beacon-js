@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+  EVENT_ID,
+  MAX_TIMEOUT_MS,
   byteLength,
   isErrorLike,
   isPlainObject,
@@ -59,5 +61,14 @@ describe('utils', () => {
 
   it('schedules unref timers', async () => {
     await new Promise<void>((resolve) => schedule(resolve, 1));
+  });
+
+  it('clamps timer delays to what setTimeout accepts', () => {
+    const spy = vi.spyOn(globalThis, 'setTimeout');
+    clearTimeout(schedule(() => {}, 99_999_999_999_000));
+    clearTimeout(schedule(() => {}, -5));
+    expect(spy.mock.calls.map((call) => call[1])).toEqual([MAX_TIMEOUT_MS, 0]);
+    expect(EVENT_ID.test('0123456789abcdef0123456789abcdef')).toBe(true);
+    expect(EVENT_ID.test('../../x')).toBe(false);
   });
 });

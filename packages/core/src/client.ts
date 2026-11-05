@@ -1,12 +1,12 @@
 import type { AuthProvider } from './auth.js';
 import { dedupeKey } from './dedupe.js';
-import { defaultDsnParser, type DsnParser, type ParsedDsn } from './dsn.js';
+import { BeaconConfigError, defaultDsnParser, type DsnParser, type ParsedDsn } from './dsn.js';
 import { encodeEnvelope, serializeLine } from './envelope.js';
 import { exceptionsFromError } from './exception.js';
 import { expandFingerprint } from './fingerprint.js';
 import { stripIp } from './privacy.js';
 import type { EnvelopeQueue, QueuedEnvelope } from './queue.js';
-import { backoffDelay } from './ratelimit.js';
+import { backoffDelay, MAX_RETRY_AFTER_MS } from './ratelimit.js';
 import type { Scope } from './scope.js';
 import { defaultScrubber, type Scrubber } from './scrub.js';
 import type { FrameOptions } from './stack.js';
@@ -23,7 +23,7 @@ import type {
   Level,
   StackFrame,
 } from './types.js';
-import { byteLength, matchesAny, schedule, uuid4 } from './utils.js';
+import { byteLength, EVENT_ID, matchesAny, schedule, uuid4 } from './utils.js';
 
 export interface Integration {
   name: string;
@@ -170,7 +170,7 @@ export class Client {
     try {
       dsn = (options.dsnParser ?? defaultDsnParser).parse(options.dsn);
       const refusal = platform.validateDsn(dsn);
-      if (refusal) throw new Error(`Invalid Beacon DSN: ${refusal}`);
+      if (refusal) throw new BeaconConfigError(`Invalid Beacon DSN: ${refusal}`);
       Object.assign(this.headers, this.authProvider.headers(dsn));
     } catch (error) {
       if (platform.onConfigError === 'throw') throw error;
@@ -250,7 +250,13 @@ export class Client {
     hint: EventHint = {},
   ): string {
     const mechanism = hint.mechanism ?? { type: 'generic', handled: true };
-    const result = exceptionsFromError(error, mechanism, this.frameOptions);
+    let result: ReturnType<typeof exceptionsFromError>;
+    try {
+      result = exceptionsFromError(error, mechanism, this.frameOptions);
+    } catch {
+      // A hostile error (throwing getters, a Proxy) must never turn into an SDK error in the app.
+      result = { values: [{ type: 'Error', value: '[unserializable error]', mechanism }] };
+    }
     const event: BeaconEvent = { level: 'error', exception: { values: result.values } };
     if (result.serialized !== undefined) event.extra = { __serialized__: result.serialized };
     return this.captureEvent(event, scope, context, {
@@ -277,7 +283,9 @@ export class Client {
     context?: CaptureContext,
     hint: EventHint = {},
   ): string {
-    const eventId = event.event_id ?? (this.options.generateEventId ?? uuid4)();
+    // Only Beacon's id format is used: an id also names files in the Node queue.
+    const candidate = event.event_id ?? (this.options.generateEventId ?? uuid4)();
+    const eventId = EVENT_ID.test(candidate) ? candidate : uuid4();
     event.event_id = eventId;
     if (!this.isActive()) return eventId;
     this.track(this.process(event, eventId, scope.clone().applyContext(context), hint));
@@ -518,7 +526,10 @@ export class Client {
         this.opaqueFailures = 0;
       }
       if (result.rateLimit) this.lastRateLimit = result.rateLimit;
-      const delay = Math.max(result.afterMs, backoffDelay(this.failures, this.random));
+      const delay = Math.min(
+        MAX_RETRY_AFTER_MS,
+        Math.max(result.afterMs, backoffDelay(this.failures, this.random)),
+      );
       this.blockedUntil = Math.max(this.blockedUntil, now + delay);
       this.log(
         `request deferred (${result.reason}${result.rateLimit ? `, ${result.rateLimit}` : ''}) for ${delay} ms`,
