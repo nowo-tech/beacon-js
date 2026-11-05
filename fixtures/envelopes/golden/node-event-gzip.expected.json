@@ -1,0 +1,18 @@
+{
+  "status": 200,
+  "items": {
+    "accepted": 1,
+    "counted": 0,
+    "dropped": 0
+  },
+  "event": {
+    "platform": "node",
+    "level": "error",
+    "grouping": {
+      "type": "Error",
+      "value_normalised": "gzip body",
+      "filename": "src/jobs/sync.js",
+      "function": "job"
+    }
+  }
+}
