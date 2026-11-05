@@ -17,6 +17,24 @@ Node runtime, OS, app memory), and `sdk` (name, version, integrations).
 - Cookies, request bodies and `Authorization` / `Cookie` headers (with `sendDefaultPii: false`, the default).
 - Input values and text: click breadcrumbs record a CSS-like selector only.
 
+## Limits of IP stripping
+
+Stripping works on **fields**: `user.ip_address`, `{{auto}}` values, `request.env.REMOTE_ADDR` (any case) and every
+request header that can carry a client address (the six of contract §5 plus any name matching
+`forwarded|client-ip|real-ip|…-ip|cf-*|fastly-*|x-vercel-*|external-address|true-client`). The Express adapter goes
+further and records only an allow-list of headers. An IP literal that the **app itself** writes into `extra`,
+`contexts`, tags, breadcrumb data or other `request.env` keys is not detected; do not put addresses there. A
+`{{auto}}` nested deeper than 20 levels is not walked.
+
+## Data at rest
+
+- Queued envelopes (memory, IndexedDB `nowo-beacon` in the browser, files in Node) are already scrubbed and stay at
+  most 7 days. IndexedDB is readable by any script of the same origin; the file queue uses a 0700 directory and 0600
+  files, never follows symlinks and only uses Beacon's 32-hex event ids in file names.
+- The IndexedDB byte cap counts UTF-16 code units, so multi-byte text can take up to about 3× the cap in storage.
+- With the opt-in `serverEnvelopeDsnAuth`, the server secret is part of every envelope header, so it is also written
+  into every file-queue entry. Prefer the default `X-Beacon-Auth` provider when the file queue is on.
+
 ## Scrubbing (default)
 
 - Headers `authorization`, `proxy-authorization`, `cookie`, `set-cookie`, `x-beacon-auth`, `x-api-key`,
@@ -24,8 +42,11 @@ Node runtime, OS, app memory), and `sdk` (name, version, integrations).
 - Keys matching `pass(word|wd)?|secret|token|api[-_]?key|auth|credential|session|cookie|csrf|xsrf|private[-_]?key|card|cvv|iban|ssn`
   → `[Filtered]`, in `request`, `extra`, `contexts`, `tags` and breadcrumb data.
 - Query parameters with those names, and `code`, `state`, `access_token`, `id_token`, `refresh_token`, `sig`,
-  `signature`, in every recorded URL; URL fragments are dropped.
-- JWTs, `Bearer …` values, `bk_…` keys and long mixed hex/base64url secrets in messages and breadcrumbs.
+  `signature`, in every recorded URL, and **any** query value that looks like a credential; `user:pass@` and URL
+  fragments are dropped. Stack frames never keep the query or fragment of a script URL.
+- JWTs, `Bearer …` values, `bk_…` / `sk_…` / `pk_…` / `ghp_…`-like keys, long mixed hex/base64url secrets and
+  Luhn-valid card numbers in messages and breadcrumbs. Console breadcrumbs run object arguments through the key
+  scrubber before they become text.
 
 ## CSP
 

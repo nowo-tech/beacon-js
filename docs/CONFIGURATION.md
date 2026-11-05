@@ -33,6 +33,8 @@ Browser only: `resourceErrors` (`'breadcrumb'` | `'event'` | `false`), `failedRe
 
 ## Transport behaviour
 
+- No server answer blocks the transport for more than **24 h** (a larger `Retry-After` is clamped), and no timer
+  is ever armed above 2³¹−1 ms.
 - `429`: the whole transport waits until `Retry-After` (60 s if missing; at least 1 h for `X-Beacon-Rate-Limit:
 quota`). `X-Beacon-Rate-Limit` is kept in `client.lastRateLimit`.
 - `503`, other `5xx`, network errors, timeouts (browser 10 s, Node 15 s): retried with exponential backoff (full
@@ -40,3 +42,10 @@ quota`). `X-Beacon-Rate-Limit` is kept in `client.lastRateLimit`.
 - `401` / `403`: the client disables itself for 1 h. Three opaque failures in a row while online (a refused origin)
   do the same in the browser.
 - `413`: dropped, and the next events use half the size cap. `400`: dropped and logged in debug mode.
+
+## Queue flush and the rate limits
+
+A queue is flushed one envelope at a time, without taking self-throttle tokens: it is bounded by the queue caps
+(30 envelopes in the browser, 100 in Node), which stay below Beacon's per-IP (60/min) and per-project (120/min)
+defaults. Several tabs of the same user coming back online at once can still come close to the per-IP limit; the
+`429` handling then applies.

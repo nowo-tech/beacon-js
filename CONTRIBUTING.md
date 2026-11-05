@@ -27,18 +27,38 @@ pnpm golden:check   # regenerates fixtures/envelopes/golden and fails on any byt
 - User-visible changes add a changeset (`pnpm changeset`). Raising a size budget needs a changeset that says why.
 - No real credentials anywhere. Tests use the fakes listed in `SECURITY.md`.
 
+## Required GitHub settings (owner, before publishing)
+
+These are repository settings, so they are not in the code; set them before `NPM_PUBLISH_ENABLED` is ever `true`:
+
+- **Environment `npm-publish`**: required reviewers (at least one owner), deployment branches and tags limited to
+  `main` and `v*` tags, and no secrets other than an npm token if trusted publishing is not used.
+- **Branch protection on `main`**: pull requests required, the CI checks required, no force pushes, no deletion.
+- The `Release` workflow already refuses to run from any branch but `main` (`if: github.ref == 'refs/heads/main'`).
+- Bind each npm trusted publisher to **both** `release.yml` and the `npm-publish` environment.
+- Optional hardening: move the publish step to a separate job that downloads the packed tarballs and does not run
+  `pnpm install`, so that `id-token: write` is never available to dependency code.
+
 ## Releasing
 
-Publishing is **off** until the owner sets up npm:
+Publishing is **off** until the owner turns it on. The `Release` workflow runs by hand from `main` or a `v*` tag
+only, is a dry run by default (`dry_run: true`), and publishes only when `dry_run` is false **and** the repository
+variable `NPM_PUBLISH_ENABLED` is `true`. It always builds, packs and uploads the release assets (`beacon.min.js`,
+`beacon.esm.min.js`, their maps, `golden-envelopes.tar.gz` and checksums) as artifacts. It publishes
+`@nowo-tech/beacon-core`, `-browser`, `-node` and `-express` in that order, with `--provenance`.
 
-1. Create the npm org `@nowo-tech` (2FA required) and publish each package name once by hand
-   (`@nowo-tech/beacon-core`, `-browser`, `-node`, `-express`), because trusted publishing needs the package to exist.
-2. On npmjs.com, add a trusted publisher for each package: repository `nowo-tech/beacon-js`, workflow
-   `release.yml`, environment `npm-publish`.
-3. Create the GitHub environment `npm-publish` with required reviewers, and set the repository variable
-   `NPM_PUBLISH_ENABLED=true`.
-4. Run the `Release` workflow with `dry_run: false`. Until then it only builds, packs and uploads the release assets
-   (`beacon.min.js`, `beacon.esm.min.js`, their maps, `golden-envelopes.tar.gz` and checksums) as artifacts.
+Authentication: if the `npm-publish` environment has an `NPM_TOKEN` secret, it is used; otherwise the workflow
+uses npm trusted publishing (OIDC). Trusted publishing needs each package to exist on npm first, hence a one-time
+bootstrap with a token:
 
-If a token is preferred over trusted publishing, use a granular automation token limited to `@nowo-tech/*`, stored
-only as the `NPM_TOKEN` secret of the `npm-publish` environment.
+1. **Token, first publish.** Create a granular access token on npmjs.com with publish rights limited to the
+   `@nowo-tech` scope and a short expiry. Store it only as the `NPM_TOKEN` secret of the `npm-publish` environment
+   (set up as in "Required GitHub settings" above), set `NPM_PUBLISH_ENABLED=true`, and run the `Release` workflow
+   once from `main` with `dry_run: false`.
+2. **Trusted publishers.** On npmjs.com, for each of the four packages, add a trusted publisher: GitHub Actions,
+   repository `nowo-tech/beacon-js`, workflow `release.yml`, environment `npm-publish`.
+3. **Delete the token.** Remove the `NPM_TOKEN` secret from the environment and revoke the token on npmjs.com.
+   From then on every release uses OIDC trusted publishing, and no long-lived npm credential exists.
+
+Between releases, set `NPM_PUBLISH_ENABLED` back to `false` (or leave it, the reviewers on the environment still
+gate every run).

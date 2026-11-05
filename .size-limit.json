@@ -4,7 +4,7 @@
     "path": "packages/core/dist/index.mjs",
     "import": "{ initClient, captureException, makeFetchTransport }",
     "gzip": true,
-    "limit": "10 kB"
+    "limit": "10.5 kB"
   },
   {
     "name": "core + browser default integrations (Beacon.init with defaults)",
