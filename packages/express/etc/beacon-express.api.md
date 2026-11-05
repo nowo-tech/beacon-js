@@ -15,6 +15,18 @@ export function beaconErrorHandler(options?: ErrorHandlerOptions): ErrorRequestH
 // @public
 export function beaconRequestHandler(options?: RequestHandlerOptions): RequestHandler;
 
+// @public (undocumented)
+export const BODY_TRUNCATED = "[truncated]";
+
+// @public (undocumented)
+export const BODY_UNPARSED = "[unparsed]";
+
+// @public
+export function bodyOf(body: unknown, contentType?: string): unknown;
+
+// @public
+export const DEFAULT_ALLOWED_HEADERS: readonly string[];
+
 // @public
 export function defaultShouldHandleError(error: unknown): boolean;
 
@@ -28,6 +40,7 @@ export function requestDataOf(req: Request_2, options?: RequestHandlerOptions): 
 
 // @public (undocumented)
 export interface RequestHandlerOptions {
+    allowHeaders?: string[];
     includeBody?: boolean;
 }
 

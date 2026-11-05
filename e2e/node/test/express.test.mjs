@@ -58,6 +58,8 @@ describe('Express app → mock Beacon', () => {
       headers: {
         authorization: 'Bearer secret-value',
         'x-forwarded-for': '203.0.113.9',
+        'x-original-forwarded-for': '203.0.113.20',
+        'fastly-client-ip': '203.0.113.21',
         cookie: 'sid=1',
       },
     });
@@ -85,13 +87,14 @@ describe('Express app → mock Beacon', () => {
     const frame = event.exception.values.at(-1).stacktrace.frames.at(-1);
     assert.equal(frame.in_app, true);
     assert.ok(!frame.filename.startsWith('/'), `relative filename: ${frame.filename}`);
-    // The client here is 127.0.0.1, which is also the server address in the Host header, the URL and the test's own
-    // outgoing breadcrumbs. No client address may appear in the fields that would carry one.
-    const { host, ...headers } = event.request.headers;
-    assert.match(host, /^127\.0\.0\.1:\d+$/);
+    // Only allow-listed headers are recorded (no host, no client address, no credentials), and no client address
+    // may appear in the fields that would carry one.
+    assert.equal(event.request.headers.host, undefined);
+    assert.equal(event.request.headers.authorization, undefined);
+    assert.equal(event.request.headers.cookie, undefined);
     const clientFields = JSON.stringify({
       user: event.user,
-      headers,
+      headers: event.request.headers,
       env: event.request.env,
       data: event.request.data,
       extra: event.extra,
@@ -100,7 +103,7 @@ describe('Express app → mock Beacon', () => {
     });
     for (const ip of ['127.0.0.1', '::1', '::ffff:', '203.0.113.9'])
       assert.ok(!clientFields.includes(ip), `no client IP literal ${ip}`);
-    assert.ok(!request.body.includes('203.0.113.9'));
+    assert.ok(!/203\.0\.113\./.test(request.body));
   });
 
   it('keeps 50 concurrent requests isolated', async () => {

@@ -1,8 +1,9 @@
 import {
   getClient,
   getCurrentScope,
-  IP_HEADERS,
+  maskCredentials,
   normalize,
+  scrubObject,
   scrubUrl,
   withScope,
   type RequestData,
@@ -10,8 +11,13 @@ import {
 import type { ErrorRequestHandler, Request, RequestHandler } from 'express';
 
 export interface RequestHandlerOptions {
-  /** Attach `req.body` (scrubbed, at most 10 kB). Default false. */
+  /** Attach `req.body` (keys scrubbed; dropped when unparsable or over 10 kB). Default false. */
   includeBody?: boolean;
+  /**
+   * Extra request headers to record, on top of the default allow-list. Client-address, cookie and authorization
+   * headers are never recorded, even when listed here.
+   */
+  allowHeaders?: string[];
 }
 
 export interface ErrorHandlerOptions {
@@ -20,41 +26,92 @@ export interface ErrorHandlerOptions {
 }
 
 const MAX_BODY_BYTES = 10 * 1024;
-const PII_HEADERS = ['authorization', 'cookie', 'proxy-authorization'];
 
-function headersOf(req: Request, sendDefaultPii: boolean): Record<string, string> {
+/** The request headers recorded by default (contract §5, allow-list). */
+export const DEFAULT_ALLOWED_HEADERS: readonly string[] = [
+  'accept',
+  'accept-encoding',
+  'accept-language',
+  'content-length',
+  'content-type',
+  'referer',
+  'user-agent',
+];
+
+/** Never recorded, whatever the allow-list says: client addresses, cookies and credentials. */
+const NEVER_HEADERS =
+  /forwarded|client-?ip|real-?ip|(?:^|-)ip(?:v[46])?$|^cf-|^fastly-|^x-vercel-|external-address|true-client|cookie|authorization|^x-beacon-auth$|api-?key|token|secret/i;
+
+export const BODY_TRUNCATED = '[truncated]';
+export const BODY_UNPARSED = '[unparsed]';
+
+function headersOf(req: Request, allowHeaders: readonly string[]): Record<string, string> {
+  const allowed = new Set([
+    ...DEFAULT_ALLOWED_HEADERS,
+    ...allowHeaders.map((name) => name.toLowerCase()),
+  ]);
   const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(req.headers)) {
     const lower = name.toLowerCase();
-    if (value === undefined || IP_HEADERS.includes(lower)) continue;
-    if (!sendDefaultPii && PII_HEADERS.includes(lower)) continue;
-    out[name] = Array.isArray(value) ? value.join(', ') : value;
+    if (value === undefined || !allowed.has(lower) || NEVER_HEADERS.test(lower)) continue;
+    const text = Array.isArray(value) ? value.join(', ') : value;
+    // The referer is another page's URL: its query string and fragment are never kept.
+    out[name] = lower === 'referer' ? scrubUrl(text).replace(/\?.*$/, '') : text;
   }
   return out;
 }
 
-function bodyOf(body: unknown): unknown {
+/** Parses JSON and form bodies that arrive as text, so that their keys can be scrubbed. */
+function parsedBody(body: unknown, contentType: string): unknown {
+  if (typeof body !== 'string' && !(body instanceof Uint8Array)) return body;
+  const text = typeof body === 'string' ? body : new TextDecoder().decode(body);
+  if (/json/i.test(contentType)) return JSON.parse(text) as unknown;
+  if (/x-www-form-urlencoded/i.test(contentType))
+    return Object.fromEntries(new URLSearchParams(text));
+  throw new Error('unsupported body');
+}
+
+/**
+ * The request body for the event (FV-M1): parsed, keys scrubbed **before** anything is cut, string values
+ * credential-masked, and then either kept whole (≤ 10 kB) or replaced by `[truncated]`. Raw text is never sent:
+ * a body that cannot be parsed becomes `[unparsed]`.
+ */
+export function bodyOf(body: unknown, contentType = ''): unknown {
   if (body === undefined) return undefined;
-  const value = normalize(body, {
+  let value: unknown;
+  try {
+    value = parsedBody(body, contentType);
+  } catch {
+    return BODY_UNPARSED;
+  }
+  const scrubbed = maskValues(scrubObject(value, 20));
+  const normalized = normalize(scrubbed, {
     depth: 5,
     maxKeys: 100,
     maxArray: 100,
     maxString: MAX_BODY_BYTES,
   });
-  const json = JSON.stringify(value);
-  return json.length > MAX_BODY_BYTES ? `${json.slice(0, MAX_BODY_BYTES - 1)}…` : value;
+  return JSON.stringify(normalized).length > MAX_BODY_BYTES ? BODY_TRUNCATED : normalized;
 }
 
-/** Request data for the event (contract §8.2): method, scrubbed URL, scrubbed headers, never cookies by default. */
+function maskValues(value: unknown): unknown {
+  if (typeof value === 'string') return maskCredentials(value);
+  if (Array.isArray(value)) return value.map(maskValues);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, maskValues(item)]));
+  }
+  return value;
+}
+
+/** Request data for the event (contract §8.2): method, scrubbed URL, allow-listed headers, never cookies. */
 export function requestDataOf(req: Request, options: RequestHandlerOptions = {}): RequestData {
-  const sendDefaultPii = getClient()?.options.sendDefaultPii === true;
   const data: RequestData = {
     method: req.method,
     url: scrubUrl(`${req.protocol}://${req.get('host') ?? 'localhost'}${req.originalUrl}`),
-    headers: headersOf(req, sendDefaultPii),
+    headers: headersOf(req, options.allowHeaders ?? []),
   };
   if (options.includeBody) {
-    const body = bodyOf(req.body as unknown);
+    const body = bodyOf(req.body as unknown, String(req.get('content-type') ?? ''));
     if (body !== undefined) data.data = body;
   }
   return data;
@@ -63,8 +120,15 @@ export function requestDataOf(req: Request, options: RequestHandlerOptions = {})
 /** Install first: an isolated scope per request, with the request context. */
 export function beaconRequestHandler(options: RequestHandlerOptions = {}): RequestHandler {
   return function beaconRequestHandler(req, _res, next) {
+    let request: RequestData | undefined;
+    try {
+      request = requestDataOf(req, options);
+    } catch {
+      // The SDK never changes the app's behaviour: without request data, the request still goes on.
+      request = undefined;
+    }
     withScope((scope) => {
-      scope.request = requestDataOf(req, options);
+      if (request) scope.request = request;
       next();
     });
   };
@@ -95,21 +159,25 @@ export function defaultShouldHandleError(error: unknown): boolean {
 export function beaconErrorHandler(options: ErrorHandlerOptions = {}): ErrorRequestHandler {
   const shouldHandle = options.shouldHandleError ?? defaultShouldHandleError;
   return function beaconErrorHandler(error, req, res, next) {
-    const client = getClient();
-    if (client && shouldHandle(error)) {
-      const scope = getCurrentScope().clone();
-      const request = { ...(scope.request ?? requestDataOf(req)) };
-      const route = (req.route as { path?: unknown } | undefined)?.path;
-      if (typeof route === 'string') {
-        request['route'] = route;
-        scope.setTag('route', `${req.method} ${route}`);
+    try {
+      const client = getClient();
+      if (client && shouldHandle(error)) {
+        const scope = getCurrentScope().clone();
+        const request = { ...(scope.request ?? requestDataOf(req)) };
+        const route = (req.route as { path?: unknown } | undefined)?.path;
+        if (typeof route === 'string') {
+          request['route'] = route;
+          scope.setTag('route', `${req.method} ${route}`);
+        }
+        scope.request = request;
+        const eventId = client.captureException(error, scope, undefined, {
+          mechanism: { type: 'express', handled: false },
+          logger: 'express',
+        });
+        (res.locals as Record<string, unknown>)['beaconEventId'] = eventId;
       }
-      scope.request = request;
-      const eventId = client.captureException(error, scope, undefined, {
-        mechanism: { type: 'express', handled: false },
-        logger: 'express',
-      });
-      (res.locals as Record<string, unknown>)['beaconEventId'] = eventId;
+    } catch {
+      // Whatever happens in the SDK, the app's own error goes on unchanged.
     }
     next(error);
   };

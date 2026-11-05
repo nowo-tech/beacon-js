@@ -12,6 +12,7 @@ import {
 import {
   beaconErrorHandler,
   beaconRequestHandler,
+  bodyOf,
   defaultShouldHandleError,
   requestDataOf,
 } from '../src/index.js';
@@ -148,13 +149,126 @@ describe('beacon-express', () => {
     );
   });
 
-  it('keeps cookies and authorization headers with sendDefaultPii (redacted by the scrubber)', async () => {
+  it('never records cookies, credentials or client addresses, even with sendDefaultPii or allowHeaders', async () => {
     await close(10);
     setup(true);
-    const { url, stop } = await serve(app());
-    await fetch(`${url}/users/1`, { headers: { Cookie: 'sid=1' } });
+    const ipHeaders = {
+      'x-forwarded-for': '203.0.113.9',
+      'x-original-forwarded-for': '203.0.113.20',
+      'x-cluster-client-ip': '203.0.113.21',
+      'fastly-client-ip': '203.0.113.22',
+      'x-vercel-forwarded-for': '203.0.113.23',
+      'cf-connecting-ip': '203.0.113.24',
+      'cf-pseudo-ipv4': '203.0.113.25',
+      'true-client-ip': '203.0.113.26',
+      'x-envoy-external-address': '203.0.113.27',
+      'x-appengine-user-ip': '203.0.113.28',
+      'x-real-ip': '203.0.113.29',
+      forwarded: 'for=203.0.113.30',
+    };
+    const listed = [...Object.keys(ipHeaders), 'cookie', 'authorization', 'x-api-key', 'x-custom'];
+    const { url, stop } = await serve(app({ allowHeaders: listed }));
+    await fetch(`${url}/users/1`, {
+      headers: {
+        ...ipHeaders,
+        Cookie: 'sid=1',
+        Authorization: 'Bearer tok',
+        'x-api-key': 'k1',
+        'x-custom': 'kept',
+        'x-unlisted': 'dropped',
+        referer: 'https://shop.test/cart?coupon=SECRET#top',
+        'user-agent': 'ua/1',
+      },
+    });
     await stop();
-    expect(events()[0]!['request'].headers.cookie).toBe('[Filtered]');
+    const headers = events()[0]!['request'].headers;
+    expect(headers).toEqual({
+      'x-custom': 'kept',
+      referer: 'https://shop.test/cart',
+      'user-agent': 'ua/1',
+      accept: '*/*',
+      'accept-encoding': expect.any(String),
+      'accept-language': '*',
+    });
+    expect(requests[0]!.body).not.toMatch(/203\.0\.113\.|sid=1|tok|k1|SECRET/);
+  });
+
+  it('never sends a large body, scrubbing keys before any size limit (FV-M1 PoC)', async () => {
+    const { url, stop } = await serve(app({ includeBody: true }));
+    await fetch(`${url}/async`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        username: 'u',
+        password: 'big-pass-LEAK',
+        padding: 'x'.repeat(12_000),
+      }),
+    });
+    await stop();
+    expect(events()[0]!['request'].data).toBe('[truncated]');
+    expect(requests[0]!.body).not.toContain('big-pass-LEAK');
+  });
+
+  it('parses JSON and form bodies sent as text, and never sends unparsable text', () => {
+    expect(bodyOf('{"password":"p","note":"Bearer abc","n":1}', 'application/json')).toEqual({
+      password: '[Filtered]',
+      note: 'Bearer [Filtered]',
+      n: 1,
+    });
+    expect(
+      bodyOf(
+        new TextEncoder().encode('token=t&name=n&card=4111111111111111'),
+        'application/x-www-form-urlencoded',
+      ),
+    ).toEqual({ token: '[Filtered]', name: 'n', card: '[Filtered]' });
+    expect(bodyOf('plain text password=hunter2', 'text/plain')).toBe('[unparsed]');
+    expect(bodyOf('{not json', 'application/json')).toBe('[unparsed]');
+    expect(bodyOf('x')).toBe('[unparsed]');
+    expect(bodyOf([{ secret: 's' }, 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2ln'])).toEqual([
+      { secret: '[Filtered]' },
+      '[Filtered]',
+    ]);
+    expect(bodyOf(undefined)).toBeUndefined();
+  });
+
+  it('passes the app error through unchanged when capturing fails, and keeps going without request data', async () => {
+    const application = express();
+    application.use(beaconRequestHandler({ includeBody: true }));
+    application.get('/weird', () => {
+      const error = new Error('original');
+      Object.defineProperty(error, 'stack', {
+        get() {
+          throw new Error('getter');
+        },
+      });
+      throw error;
+    });
+    application.use(beaconErrorHandler());
+    application.use(
+      (error: Error, _req: Request, res: express.Response, _next: express.NextFunction) => {
+        res.status(500).json({ seen: error.message });
+      },
+    );
+    const { url, stop } = await serve(application);
+    const response = await fetch(`${url}/weird`);
+    expect(await response.json()).toEqual({ seen: 'original' });
+    await stop();
+    const broken = {
+      get: () => {
+        throw new Error('broken request');
+      },
+    } as unknown as Request;
+    let nextCalled = 0;
+    beaconRequestHandler()(broken, {} as express.Response, () => nextCalled++);
+    expect(nextCalled).toBe(1);
+    const seen: unknown[] = [];
+    const original = new Error('app error');
+    beaconErrorHandler({
+      shouldHandleError: () => {
+        throw new Error('sdk');
+      },
+    })(original, broken, { locals: {} } as express.Response, (e?: unknown) => seen.push(e));
+    expect(seen).toEqual([original]);
   });
 
   it('honours shouldHandleError and works without the request handler or a client', async () => {
@@ -187,18 +301,18 @@ describe('beacon-express', () => {
       method: 'PUT',
       protocol: 'https',
       originalUrl: '/p#frag',
-      headers: { multi: ['a', 'b'], missing: undefined },
+      headers: { multi: ['a', 'b'], missing: undefined, other: 'no' },
       get: () => undefined,
       body: { big: 'x'.repeat(20_000), more: 'y'.repeat(9000) },
     } as unknown as Request;
-    const data = requestDataOf(req, { includeBody: true });
+    const data = requestDataOf(req, { includeBody: true, allowHeaders: ['Multi', 'missing'] });
     expect(data).toMatchObject({
       method: 'PUT',
       url: 'https://localhost/p',
       headers: { multi: 'a, b' },
     });
-    expect(typeof data.data).toBe('string');
-    expect((data.data as string).length).toBe(10 * 1024);
+    expect(data.headers).toEqual({ multi: 'a, b' });
+    expect(data.data).toBe('[truncated]');
     expect(
       requestDataOf({ ...req, body: undefined } as Request, { includeBody: true }),
     ).not.toHaveProperty('data');
