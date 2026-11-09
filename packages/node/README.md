@@ -31,7 +31,7 @@ await Beacon.close(2000); // on shutdown
 | `shutdownHandlers`     | none                          | opt-in signals (`['SIGTERM', 'SIGINT']`): flush, then re-raise the signal                                                   |
 | `unhandledRejections`  | from `--unhandled-rejections` | `throw` / `strict` capture, flush and exit 1; `warn` / `none` only capture                                                  |
 | `queue`                | memory (100)                  | `{ type: 'file', dir }` keeps envelopes as `0600` files (100 files / 10 MiB) and flushes them on start; `false` disables it |
-| `compression`          | `'auto'`                      | gzip (level 6) for bodies over 1 kB, sent uncompressed when the ratio would exceed 50:1                                     |
+| `compression`          | `false`                       | bodies are sent uncompressed; `'auto'` (requires Beacon ≥ 1.143) gzips (level 6) bodies over 1 kB unless the ratio > 50:1   |
 
 The DSN must be a **server** DSN with a secret. Browser keys (`bk_…`) are refused, and so is a DSN without a secret.
 The secret is sent only in `X-Beacon-Auth: Beacon beacon_key=…, beacon_secret=…`: never in the URL, the envelope,

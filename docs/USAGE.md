@@ -70,7 +70,7 @@ Beacon.init({ dsn: process.env.BEACON_DSN, release: 'api@2.0.0', shutdownHandler
 Defaults: uncaught exceptions are captured (`fatal`), flushed, and the process exits with code 1 as Node would;
 unhandled rejections follow `--unhandled-rejections`; `http`, `https` and `fetch` breadcrumbs via
 `diagnostics_channel`; console breadcrumbs; runtime/os/app context; source context for in-app frames;
-`AsyncLocalStorage` request isolation; gzip for bodies over 1 kB; a memory queue (or `queue: { type: 'file', dir }`).
+`AsyncLocalStorage` request isolation; opt-in gzip for bodies over 1 kB (`compression: 'auto'`, Beacon ≥ 1.143); a memory queue (or `queue: { type: 'file', dir }`).
 
 ## Express
 

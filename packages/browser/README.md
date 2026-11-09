@@ -31,6 +31,8 @@ Or without a bundler, with the build Beacon serves (integrity from its `manifest
 - Only browser keys (`bk_…`) are accepted; a DSN with a secret is refused and nothing is sent.
 - The default request is a CORS simple request (`text/plain`, the key in the envelope header, no custom header, no
   cookies), and `sendBeacon` delivers pending data when the page is hidden.
+- Bodies are sent uncompressed by default. `compression: 'auto'` gzips bodies over 32 kB (never while the page
+  unloads) and requires Beacon ≥ 1.143, the first ingest that decompresses `Content-Encoding: gzip`.
 - The user's IP is never sent. See [PRIVACY](../../docs/PRIVACY.md) for the field list and the CSP note.
 - `@nowo-tech/beacon-browser/element` registers `<beacon-reporter>`; `@nowo-tech/beacon-browser/offline` provides the
   IndexedDB queue (`init({ offline: indexedDbQueue() })`).
