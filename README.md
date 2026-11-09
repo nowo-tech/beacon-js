@@ -4,12 +4,12 @@ TypeScript SDK for **Symfony Beacon**: error reporting from browsers and Node.js
 with Sentry's: they are valid Sentry envelopes, restricted to a strict subset (one event per envelope, single-line
 payloads, exact `length`).
 
-| Package                                         | What it is                                                                                  |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| [`@nowo-tech/beacon-core`](packages/core)       | event model, envelope encoder, transport, scopes, scrubbing, truncation (zero runtime deps) |
-| [`@nowo-tech/beacon-browser`](packages/browser) | browser SDK, the `<beacon-reporter>` web component, ESM and IIFE (`beacon.min.js`) builds   |
-| [`@nowo-tech/beacon-node`](packages/node)       | Node.js ≥ 20 SDK: process handlers, HTTP breadcrumbs, request isolation, gzip, file queue   |
-| [`@nowo-tech/beacon-express`](packages/express) | Express 4 and 5 middleware                                                                  |
+| Package                                         | What it is                                                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [`@nowo-tech/beacon-core`](packages/core)       | event model, envelope encoder, transport, scopes, scrubbing, truncation (zero runtime deps)      |
+| [`@nowo-tech/beacon-browser`](packages/browser) | browser SDK, the `<beacon-reporter>` web component, ESM and IIFE (`beacon.min.js`) builds        |
+| [`@nowo-tech/beacon-node`](packages/node)       | Node.js ≥ 20 SDK: process handlers, HTTP breadcrumbs, request isolation, opt-in gzip, file queue |
+| [`@nowo-tech/beacon-express`](packages/express) | Express 4 and 5 middleware                                                                       |
 
 Status: **0.1.0, pre-release, not published to npm yet.** The packages are versioned together.
 

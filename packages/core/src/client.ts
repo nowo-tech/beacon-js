@@ -81,7 +81,10 @@ export interface ClientOptions {
   maxEnvelopeBytes?: number;
   throttle?: Partial<ThrottleOptions>;
   maxEventsPerSession?: number;
-  /** `'auto'` (default) or `false`. */
+  /**
+   * `false` (default): bodies are sent uncompressed. `'auto'` gzips large bodies (browser over 32 kB, Node over
+   * 1 kB) and requires Beacon ≥ 1.143, the first ingest that decompresses `Content-Encoding: gzip`.
+   */
   compression?: 'auto' | false;
   scrubber?: false | Scrubber;
   /** Envelope queue for retries and offline use; `false` disables it. */

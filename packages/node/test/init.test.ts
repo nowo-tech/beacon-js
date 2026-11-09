@@ -89,9 +89,27 @@ describe('init', () => {
     }
   });
 
-  it('gzips bodies over 1 kB and sends highly repetitive bodies uncompressed (50:1 guard)', async () => {
+  it('sends uncompressed by default, even for bodies over 1 kB', async () => {
     const fetch = stubFetch();
     node.init({ dsn: SERVER_DSN, process: fakeProcess(), includeSourceContext: false });
+    const varied = Array.from({ length: 300 }, (_, i) => `${i}:${(i * 7919) % 997}`).join(',');
+    node.captureMessage(varied);
+    await node.flush(2000);
+    const init = fetch.mock.calls[0]![1] as Init;
+    expect(init.headers['Content-Encoding']).toBeUndefined();
+    expect(typeof init.body).toBe('string');
+    expect(Buffer.byteLength(init.body as string)).toBeGreaterThan(1024);
+    expect(init.body as string).toContain(varied);
+  });
+
+  it("with compression: 'auto', gzips bodies over 1 kB and sends highly repetitive bodies uncompressed (50:1 guard)", async () => {
+    const fetch = stubFetch();
+    node.init({
+      dsn: SERVER_DSN,
+      process: fakeProcess(),
+      includeSourceContext: false,
+      compression: 'auto',
+    });
     const varied = Array.from({ length: 300 }, (_, i) => `${i}:${(i * 7919) % 997}`).join(',');
     node.captureMessage(varied);
     node.captureMessage('repetitive', 'info', {

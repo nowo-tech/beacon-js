@@ -72,7 +72,7 @@ export function browserPlatform(options: BrowserOptions): PlatformConfig {
     makeTransport: (clientOptions) =>
       makeBrowserTransport({
         fetch: fetchImpl,
-        ...(clientOptions.compression === false ? { compression: false } : {}),
+        ...(clientOptions.compression === 'auto' ? { compression: 'auto' } : {}),
       }),
     validateDsn: (dsn) =>
       dsn.kind === 'browser'

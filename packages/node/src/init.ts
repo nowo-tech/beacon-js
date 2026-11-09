@@ -93,7 +93,7 @@ export function nodePlatform(options: NodeOptions = { dsn: '' }): PlatformConfig
         contentType: 'application/x-beacon-envelope',
         timeoutMs: 15_000,
         compressMinBytes: 1024,
-        ...(clientOptions.compression === false ? {} : { compress: gzipCompressor }),
+        ...(clientOptions.compression === 'auto' ? { compress: gzipCompressor } : {}),
       }),
     validateDsn: (dsn) =>
       dsn.kind === 'browser'

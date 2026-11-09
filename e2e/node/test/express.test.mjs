@@ -18,6 +18,7 @@ before(async () => {
     exitOnUncaught: false,
     unhandledRejections: 'warn',
     throttle: { perMinute: 1000, burst: 1000, refillPerSecond: 100 },
+    compression: 'auto',
   });
   app = express();
   app.use(beaconRequestHandler());
@@ -121,7 +122,7 @@ describe('Express app → mock Beacon', () => {
     }
   });
 
-  it('gzips bodies over 1 kB', async () => {
+  it("gzips bodies over 1 kB with compression: 'auto'", async () => {
     await fetch(`${appUrl}/big`);
     await Beacon.flush(2000);
     const [{ request }] = events(ctx.mock);

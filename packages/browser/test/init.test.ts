@@ -77,6 +77,7 @@ describe('init', () => {
     expect(browserPlatform({ dsn: DSN }).isOnline!()).toBe(navigator.onLine);
     const platform = browserPlatform({ dsn: DSN });
     expect(platform.makeTransport({ dsn: DSN, compression: false })).toBeDefined();
+    expect(platform.makeTransport({ dsn: DSN, compression: 'auto' })).toBeDefined();
     expect(platform.makeTransport({ dsn: DSN })).toBeDefined();
     expect(platform.validateDsn({ kind: 'browser' } as never)).toBeUndefined();
   });

@@ -44,7 +44,6 @@ export function browserPlatform(options: BrowserOptions): PlatformConfig;
 
 // @public (undocumented)
 export interface BrowserTransportOptions {
-    // (undocumented)
     compression?: 'auto' | false;
     fetch?: typeof fetch;
 }

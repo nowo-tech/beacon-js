@@ -17,7 +17,7 @@
 | `authProvider`, `dsnParser`             | browser `envelopeDsnAuth`, Node `beaconServerAuth`      | also `headerBrowserKeyAuth`, `serverEnvelopeDsnAuth`                       |
 | `transport`                             | fetch transport                                         | custom `Transport`                                                         |
 | `maxEnvelopeBytes`                      | browser 200 000, Node 1 MiB                             | the browser can only lower it                                              |
-| `compression`                           | `'auto'`                                                | browser: gzip over 32 kB (never on unload); Node: over 1 kB; `false` off   |
+| `compression`                           | `false`                                                 | uncompressed; `'auto'` (requires Beacon ≥ 1.143, see below) gzips          |
 | `throttle`                              | browser 30/min, burst 5, 0.5/s; Node 100/min, 20, 1.6/s | the browser can only lower it                                              |
 | `maxEventsPerSession`                   | browser 100                                             |                                                                            |
 | `sendClientReports`                     | `true`                                                  | `client_report` in its own envelope, at most once per 60 s and on unload   |
@@ -30,6 +30,15 @@ Node only: `appRoot`, `includeSourceContext` (`true`), `exitOnUncaught` (`true`)
 
 Browser only: `resourceErrors` (`'breadcrumb'` | `'event'` | `false`), `failedRequestStatusCodes` (`[[500, 599]]`),
 `breadcrumbs: { console, dom, navigation }`.
+
+## Compression
+
+`compression` defaults to `false`: every body is sent uncompressed. Beacon's ingest decompresses
+`Content-Encoding: gzip` from **Beacon 1.143** on; older versions cannot read a gzipped envelope.
+
+`compression: 'auto'` is an explicit opt-in that **requires Beacon ≥ 1.143**. It gzips bodies over 32 kB in the browser
+(with `CompressionStream`, never while the page unloads) and over 1 kB in Node (level 6). A body whose ratio would
+exceed 50:1 is still sent uncompressed, since Beacon refuses it with `413`.
 
 ## Transport behaviour
 

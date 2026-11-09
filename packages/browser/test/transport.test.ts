@@ -42,6 +42,20 @@ describe('browser transport', () => {
     expect(fetch).toHaveBeenCalled();
   });
 
+  it("sends bodies over 32 kB uncompressed by default and gzips them with compression: 'auto'", async () => {
+    const body = Array.from({ length: 6000 }, (_, i) => `${i}:${(i * 7919) % 997}`).join(',');
+    expect(body.length).toBeGreaterThan(32_768);
+    const { fetch } = stubFetch();
+    await makeBrowserTransport({ fetch }).send({ ...request, body });
+    const plain = fetch.mock.calls[0]![1]!;
+    expect((plain.headers as Record<string, string>)['Content-Encoding']).toBeUndefined();
+    expect(plain.body).toBe(body);
+    await makeBrowserTransport({ fetch, compression: 'auto' }).send({ ...request, body });
+    const gzipped = fetch.mock.calls[1]![1]!;
+    expect((gzipped.headers as Record<string, string>)['Content-Encoding']).toBe('gzip');
+    expect(gzipped.body).toBeInstanceOf(Uint8Array);
+  });
+
   it('gzips with CompressionStream, and skips without it', async () => {
     const body = 'x'.repeat(10);
     const gz = await compressionStreamGzip(body);
