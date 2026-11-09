@@ -64,7 +64,8 @@ jobs:
         run: |
           set -euo pipefail
           for pkg in core browser node express; do
-            npm publish --dry-run --access public npm-tarballs/nowo-tech-beacon-$pkg-*.tgz
+          # A leading ./ makes npm treat the argument as a local tarball (without it, `dir/file.tgz` is read as a GitHub repo).
+            npm publish --dry-run --access public ./npm-tarballs/nowo-tech-beacon-$pkg-*.tgz
           done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -111,5 +112,5 @@ jobs:
           export NPM_CONFIG_USERCONFIG="${RUNNER_TEMP}/.npmrc"
           trap 'rm -f "${RUNNER_TEMP}/.npmrc"' EXIT
           for pkg in core browser node express; do
-            npm publish --provenance --access public npm-tarballs/nowo-tech-beacon-$pkg-*.tgz
+            npm publish --provenance --access public ./npm-tarballs/nowo-tech-beacon-$pkg-*.tgz
           done
