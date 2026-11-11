@@ -818,6 +818,7 @@ export type TransportResult = {
     reason: 'ratelimit' | 'quota' | 'unavailable' | 'network';
     rateLimit?: string;
     status?: number;
+    timedOut?: boolean;
 } | {
     kind: 'drop';
     reason: 'unauthorized' | 'forbidden' | 'too_large' | 'invalid' | 'client';

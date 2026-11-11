@@ -18,5 +18,7 @@ issue. We acknowledge reports within **72 hours**, and we publish an advisory on
 - The browser key (`bk_…`) is public by design. Protection is server-side (origin allow-list, CORS, limits).
 - The SDK never sends the user's IP, scrubs credentials before sending, never puts credentials in a URL, and refuses a
   server secret in the browser build.
+- The transport never follows redirects (`redirect: 'manual'`): a 307/308 would otherwise replay `X-Beacon-Auth`
+  (the DSN secret) and the body to another host. A redirect is a failed send that is never re-sent.
 - Never paste a real DSN, key or token into an issue, a test or a CI log. Fixtures use obvious fakes only
   (`bk_test_0000…`, `test-secret-not-real`, `golden-secret-not-real`).

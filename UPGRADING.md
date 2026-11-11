@@ -16,6 +16,10 @@ Beacon you report to is 1.147 or later.
 - Content Security Policy: `connect-src` already allows the Beacon origin; the path changes nothing there.
 - Tests that assert envelope URLs, or that run several fake servers on one DSN, can call `resetIngestPaths()`
   between cases.
+- Redirects are no longer followed (`redirect: 'manual'`, also over `fetchInit`): a Beacon URL that answers a
+  `3xx` drops the envelope. Point the DSN at the final Beacon URL.
+- Short-lived processes (serverless functions, CLI runs) against Beacon < 1.147 pay the extra `404` on every run:
+  set `ingestPaths: 'legacy'` there until Beacon is upgraded.
 
 ## 0.1.0
 

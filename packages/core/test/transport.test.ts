@@ -1,3 +1,5 @@
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -229,7 +231,50 @@ describe('makeFetchTransport', () => {
         ),
       timeoutMs: 5,
     });
-    expect(await hanging.send(request)).toEqual({ kind: 'retry', afterMs: 0, reason: 'network' });
+    expect(await hanging.send(request)).toEqual({
+      kind: 'retry',
+      afterMs: 0,
+      reason: 'network',
+      timedOut: true,
+    });
+  });
+
+  it('never follows redirects (LO-M2): manual mode, a 3xx or an opaque redirect is a failed send', async () => {
+    const fetch = fakeFetch(307, { Location: 'https://elsewhere.test/steal' });
+    const transport = makeFetchTransport({ fetch, fetchInit: { redirect: 'follow' } });
+    expect(await transport.send(request)).toEqual({ kind: 'drop', reason: 'client', status: 307 });
+    expect(fetch.mock.calls[0]![1]!.redirect).toBe('manual');
+
+    const opaque = makeFetchTransport({
+      fetch: () => Promise.resolve({ type: 'opaqueredirect', status: 0 } as Response),
+    });
+    expect(await opaque.send(request)).toEqual({ kind: 'drop', reason: 'client' });
+  });
+
+  it('node: a 307 to another host never carries X-Beacon-Auth there', async () => {
+    const stolen: string[] = [];
+    const target = createServer((req, res) => {
+      stolen.push(String(req.headers['x-beacon-auth'] ?? ''));
+      res.writeHead(200).end();
+    });
+    const portOf = (server: Server) => (server.address() as AddressInfo).port;
+    await new Promise<void>((resolve) => target.listen(0, '127.0.0.1', resolve));
+    const beacon = createServer((_req, res) => {
+      res.writeHead(307, { Location: `http://localhost:${portOf(target)}/steal` }).end();
+    });
+    await new Promise<void>((resolve) => beacon.listen(0, '127.0.0.1', resolve));
+    try {
+      const result = await makeFetchTransport().send({
+        ...request,
+        url: `http://127.0.0.1:${portOf(beacon)}/api/ingest/v1/7/envelope/`,
+        headers: { 'X-Beacon-Auth': 'Beacon beacon_key=pk, beacon_secret=test-secret-not-real' },
+      });
+      expect(result).toEqual({ kind: 'drop', reason: 'client', status: 307 });
+      expect(stolen).toEqual([]);
+    } finally {
+      await new Promise((resolve) => beacon.close(resolve));
+      await new Promise((resolve) => target.close(resolve));
+    }
   });
 
   it('flushes in-flight requests within a timeout', async () => {

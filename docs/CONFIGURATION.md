@@ -52,17 +52,36 @@ Beacon 1.147 serves the ingest under versioned paths (D-20261110-04) and keeps t
 
 `ingestPaths` (`<beacon-reporter ingest-paths="…">`) chooses the envelope path:
 
-- `'auto'` (default) works with every Beacon. The first envelope goes to the versioned path. If the server does not
-  know it, the same envelope is sent **once** to the alias: on `404` or `405`, and in the browser also on an opaque
-  failure, because an older Beacon answers an unknown path with a `404` that carries no CORS headers. The answer is
-  remembered per DSN (origin, path prefix and project) for the life of the page or process, so later envelopes go
-  straight to the right path with a single request. Any other answer (`2xx`, `400`, `401`, `403`, `413`, `429`,
-  `5xx`) is final and handled as described below: an envelope that Beacon accepted or refused is never sent twice.
-  A current Beacon answers every browser envelope, accepted or refused, with CORS headers, so the opaque-failure
-  fallback cannot re-send an accepted envelope. Network failures are never remembered. While the path is unknown,
-  requests made as the page unloads (`sendBeacon`, which cannot report a status) use the alias.
+- `'auto'` (default) works with every Beacon. Envelopes go to the versioned path unless the DSN's server is known to
+  serve the alias only. On `404` or `405` the same envelope is sent **once** to the alias; a `404`/`405` means nothing
+  was processed, so this never duplicates an envelope. What the server serves is remembered per DSN (origin, path
+  prefix and project) for the life of the page or process, the newest answer replacing the older one, and only from
+  proof (same rules as beacon-php and BeaconBundle):
+
+  | Answer                                                            | Learned                                    | Re-sent to the alias |
+  | ----------------------------------------------------------------- | ------------------------------------------ | -------------------- |
+  | versioned `2xx`, or a Beacon `400`/`401`/`403`/`413`/`415`/`422`  | versioned                                  | no                   |
+  | versioned `404`/`405`                                             | (forgotten if it was versioned: self-heal) | once                 |
+  | versioned `408`/`429`/`5xx`/other, a network failure or a timeout | nothing (the next envelope probes again)   | no                   |
+  | alias `2xx`, or a Beacon `400`/`401`/`403`/`413`/`415`/`422`      | alias                                      | —                    |
+  | alias `404`/`405` too (unknown project)                           | versioned                                  | —                    |
+  | alias `408`/`429`/`5xx`/other, or a network failure               | nothing                                    | —                    |
+
+  A transient `503` from a proxy in front of an older Beacon therefore never pins the versioned path, and a server
+  known as versioned that starts answering `404` (a downgrade) heals itself on the next envelope.
+
+  In the browser an older Beacon answers an unknown path with a `404` that carries no CORS headers, so the fetch fails
+  opaquely. A current Beacon's IP-limiter `429` and its origin-gate `401`/`403` are opaque too, so the opaque-failure
+  fallback is limited: it re-sends to the alias only while nothing is known about the server, at most once per DSN
+  (if the alias is opaque as well, later opaque failures are not re-sent), and never after the SDK's own timeout,
+  because the first request may have been accepted. While the path is unknown, requests made as the page unloads
+  (`sendBeacon`, which cannot report a status) use the alias.
+
 - `'versioned'`: always the versioned path (Beacon ≥ 1.147); no fallback.
 - `'legacy'`: always the alias.
+
+Redirects are never followed (`redirect: 'manual'`, also when `fetchInit` asks otherwise): a `3xx`, or a browser
+`opaqueredirect`, is a failed send that is not re-sent, so `X-Beacon-Auth` and the body never reach another host.
 
 The memory is a module-level map bounded to 32 DSNs (oldest evicted). It describes the server, never a user or a
 request, so it is safe in long-lived Node processes; `resetIngestPaths()` clears it (tests, or a Beacon upgraded

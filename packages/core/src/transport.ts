@@ -27,6 +27,8 @@ export type TransportResult =
       rateLimit?: string;
       /** HTTP status, when there was a response. */
       status?: number;
+      /** The request was aborted by the transport's own timeout (it may still have reached Beacon). */
+      timedOut?: boolean;
     }
   | {
       kind: 'drop';
@@ -153,10 +155,20 @@ export function makeFetchTransport(options: FetchTransportOptions = {}): Transpo
         body: payload.body as BodyInit,
         keepalive: size <= (options.keepaliveMaxBytes ?? 0),
         signal: controller.signal,
+        // Never follow a redirect: Node's fetch would replay `X-Beacon-Auth` (the DSN secret) and the body to the
+        // target host (audit LO-M2). A 3xx, or the browser's `opaqueredirect`, is a failed send that is never re-sent.
+        redirect: 'manual',
       });
+      if (response.type === 'opaqueredirect') return { kind: 'drop', reason: 'client' };
       return classifyResponse(response.status, (name) => response.headers.get(name), now());
     } catch {
-      return { kind: 'retry', afterMs: options.networkRetryMs ?? 0, reason: 'network' };
+      const failure: Extract<TransportResult, { kind: 'retry' }> = {
+        kind: 'retry',
+        afterMs: options.networkRetryMs ?? 0,
+        reason: 'network',
+      };
+      if (controller.signal.aborted) failure.timedOut = true;
+      return failure;
     } finally {
       clearTimeout(timer);
     }

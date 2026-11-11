@@ -4,7 +4,14 @@ import { BeaconConfigError, defaultDsnParser, type DsnParser, type ParsedDsn } f
 import { encodeEnvelope, serializeLine } from './envelope.js';
 import { exceptionsFromError } from './exception.js';
 import { expandFingerprint } from './fingerprint.js';
-import { knownIngestPath, rememberIngestPath, type IngestPaths } from './ingest-paths.js';
+import {
+  forgetIngestPath,
+  isMissingRoute,
+  knownIngestPath,
+  provesRoute,
+  rememberIngestPath,
+  type IngestPaths,
+} from './ingest-paths.js';
 import { stripIp } from './privacy.js';
 import type { EnvelopeQueue, QueuedEnvelope } from './queue.js';
 import { backoffDelay, MAX_RETRY_AFTER_MS } from './ratelimit.js';
@@ -511,11 +518,16 @@ export class Client {
   }
 
   /**
-   * Picks the envelope URL (`ingestPaths`). In `auto` mode, while the path of the DSN's server is unknown, the
-   * versioned URL is tried first and the unversioned alias once when the answer is `404`/`405` (Beacon < 1.147), or,
-   * in the browser, an opaque failure (an old Beacon's `404` carries no CORS headers). Any other answer is final, so an
-   * envelope that Beacon accepted or refused is never sent twice. Unload requests use the alias until the path is
-   * known (`sendBeacon` cannot report a status). The answer is remembered per DSN for the life of the page / process.
+   * Picks the envelope URL (`ingestPaths`). In `auto` mode the versioned URL is used unless the DSN's server is known to
+   * serve the unversioned alias only. Same state machine as beacon-php and BeaconBundle (audit LO-M1):
+   * - `404`/`405` → the same envelope once to the alias (nothing was processed, so this never duplicates). A target
+   *   known as versioned is forgotten first (self-heal after a Beacon downgrade or a stale entry).
+   * - `2xx` or a Beacon `400`/`401`/`403`/`413`/`415`/`422` → versioned is remembered.
+   * - `408`, `429`, `5xx`, other statuses, network failures and timeouts → nothing is learned, nothing re-sent.
+   * - Browser only: an opaque failure (an old Beacon's `404` carries no CORS headers) is re-sent to the alias only while
+   *   nothing is known about the target, at most once per target (audit LO-L2), and never after a timeout, since the
+   *   first request may have been accepted.
+   * Unload requests use the alias until the versioned path is known (`sendBeacon` cannot report a status).
    */
   private async sendToIngest(
     send: (url: string) => Promise<TransportResult>,
@@ -526,23 +538,40 @@ export class Client {
     const legacy = dsn.legacyEnvelopeUrl?.();
     if (!legacy || mode === 'versioned') return send(dsn.envelopeUrl());
     const known = mode === 'legacy' ? mode : knownIngestPath(legacy);
-    if (known === 'legacy' || (!known && unload)) return send(legacy);
+    if (known === 'legacy' || (known !== 'versioned' && unload)) return send(legacy);
     const first = await send(dsn.envelopeUrl());
-    if (known) return first;
     const status = statusOf(first);
-    if (
-      !isMissingRoute(status) &&
-      (first.kind !== 'retry' ||
-        first.reason !== 'network' ||
-        this.platform.platform !== 'javascript')
-    ) {
-      if (status) rememberIngestPath(legacy, 'versioned');
+    if (isMissingRoute(status)) {
+      forgetIngestPath(legacy);
+      return this.sendToAlias(send, legacy);
+    }
+    if (status !== undefined) {
+      if (provesRoute(status)) rememberIngestPath(legacy, 'versioned');
       return first;
     }
+    if (
+      known === undefined &&
+      first.kind === 'retry' &&
+      first.reason === 'network' &&
+      !first.timedOut &&
+      this.platform.platform === 'javascript'
+    ) {
+      rememberIngestPath(legacy, 'opaque');
+      return this.sendToAlias(send, legacy);
+    }
+    return first;
+  }
+
+  /** The one resend to the unversioned alias, and what its answer teaches. */
+  private async sendToAlias(
+    send: (url: string) => Promise<TransportResult>,
+    legacy: string,
+  ): Promise<TransportResult> {
     const second = await send(legacy);
-    const secondStatus = statusOf(second);
-    if (secondStatus)
-      rememberIngestPath(legacy, isMissingRoute(secondStatus) ? 'versioned' : 'legacy');
+    const status = statusOf(second);
+    // Both paths missing: the project is unknown, not the path. Keep the canonical path.
+    if (isMissingRoute(status)) rememberIngestPath(legacy, 'versioned');
+    else if (status !== undefined && provesRoute(status)) rememberIngestPath(legacy, 'legacy');
     return second;
   }
 
@@ -688,6 +717,3 @@ export class Client {
 /** The HTTP status behind a transport result (`200` for `ok`), `undefined` without a response. */
 const statusOf = (result: TransportResult): number | undefined =>
   result.kind === 'ok' ? 200 : result.status;
-
-/** `404` / `405`: the server has no such ingest route. */
-const isMissingRoute = (status: number | undefined): boolean => status === 404 || status === 405;
