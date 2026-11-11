@@ -24,6 +24,11 @@ on:
 permissions:
   contents: read
 
+# One release run per ref at a time; a second push of the same tag waits instead of racing the first publish.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   # npm >= 11.5 does trusted publishing (OIDC) from GitHub Actions. The publish job uses the npm bundled with Node 24
   # (no global npm install: nothing is fetched outside the pinned setup-node) and fails if it is older.
@@ -130,7 +135,8 @@ jobs:
           trap 'rm -f "${RUNNER_TEMP}/.npmrc"' EXIT
           for pkg in core browser node express; do
             tgz=$(ls ./npm-tarballs/nowo-tech-beacon-$pkg-*.tgz)
-            ver="${tgz##*-}"; ver="${ver%.tgz}"
+            # Read the version from the tarball itself (a prerelease such as 0.3.0-rc.1 contains '-').
+            ver=$(tar -xzOf "$tgz" package/package.json | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).version')
             if npm view "@nowo-tech/beacon-$pkg@$ver" version >/dev/null 2>&1; then
               echo "@nowo-tech/beacon-$pkg@$ver is already on npm: skipped."
               continue

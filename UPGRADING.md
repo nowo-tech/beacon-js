@@ -18,8 +18,11 @@ Beacon you report to is 1.147 or later.
   between cases.
 - Security (audit LO-M2): redirects are no longer followed (`redirect: 'manual'`, also over `fetchInit`): a Beacon
   URL that answers a `3xx` drops the envelope. Point the DSN at the final Beacon URL. In 0.1.0, Node's `fetch`
-  followed a 307/308 and forwarded `X-Beacon-Auth` (the DSN secret) and the body to the redirect target, so
-  `@nowo-tech/beacon-node` < 0.2.0 users whose Beacon URL could redirect should upgrade and rotate the DSN secret.
+  followed any redirect (301/302/303/307/308) and forwarded `X-Beacon-Auth` (the DSN secret) to the redirect target,
+  cross-origin included (as a `GET` without the body on 301/302/303, with the body on 307/308). Affected:
+  `@nowo-tech/beacon-node` < 0.2.0, `@nowo-tech/beacon-express` < 0.2.0 (it pins `beacon-node` 0.1.0, so move
+  express to 0.2.0 too) and `@nowo-tech/beacon-core` < 0.2.0 used from Node with a DSN secret. Upgrade and rotate
+  the DSN secret.
 - Short-lived processes (serverless functions, CLI runs) against Beacon < 1.147 pay the extra `404` on every run:
   set `ingestPaths: 'legacy'` there until Beacon is upgraded.
 

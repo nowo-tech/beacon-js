@@ -218,6 +218,32 @@ describe('ingest paths (auto)', () => {
     expect(knownIngestPath(TARGET)).toBeUndefined();
   });
 
+  it('browser: opaque failures of the versioned path do not disable the client while the marker lives (LO2-L1)', async () => {
+    // Audit PoC: network on both paths, then an old Beacon's CORS-less 404. Without the grace the third opaque failure
+    // disabled the client for 1 h before the marker expired.
+    let now = 1_000_000;
+    const { client, urls } = make(
+      { clock: () => now },
+      { isOnline: () => true },
+      network, // V
+      network, // L: marked 'opaque', counted
+      network, // V: graced
+      network, // V: graced
+      network, // V: graced
+      network, // V after the TTL
+      { kind: 'ok' }, // L
+    );
+    for (let i = 0; i < 4; i++) {
+      await send(client);
+      now += 30_000;
+    }
+    expect(urls()).toHaveLength(5);
+    now += OPAQUE_FALLBACK_TTL_MS;
+    await send(client);
+    expect(urls()).toEqual([VERSIONED, LEGACY, VERSIONED, VERSIONED, VERSIONED, VERSIONED, LEGACY]);
+    expect(knownIngestPath(TARGET, now)).toBe('legacy');
+  });
+
   it('the opaque marker expires, a learned path does not', () => {
     rememberIngestPath(TARGET, 'opaque', 0);
     expect(knownIngestPath(TARGET, OPAQUE_FALLBACK_TTL_MS - 1)).toBe('opaque');

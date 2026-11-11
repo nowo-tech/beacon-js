@@ -561,6 +561,9 @@ export class Client {
       rememberIngestPath(legacy, 'opaque', this.now());
       return this.sendToAlias(send, legacy);
     }
+    // While the 'opaque' marker lives, an opaque failure of the versioned path does not count toward the disable
+    // (audit LO2-L1): handleResult() adds it back, and resets the counter on any other retry reason.
+    if (known === 'opaque' && first.kind === 'retry') this.opaqueFailures--;
     return first;
   }
 

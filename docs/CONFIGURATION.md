@@ -104,7 +104,9 @@ quota`). `X-Beacon-Rate-Limit` is kept in `client.lastRateLimit`.
 - `503`, other `5xx`, network errors, timeouts (browser 10 s, Node 15 s): retried with exponential backoff (full
   jitter, 1 s base, 5 min max); queued when a queue exists.
 - `401` / `403`: the client disables itself for 1 h. Three opaque failures in a row while online (a refused origin)
-  do the same in the browser.
+  do the same in the browser; while the opaque-fallback marker of `ingestPaths: 'auto'` lives (5 minutes), opaque
+  failures of the versioned path are not counted, so a network outage on the first envelope cannot disable a page
+  that reports to an older Beacon (a refused origin is then disabled after three marker cycles).
 - `413`: dropped, and the next events use half the size cap. `400`: dropped and logged in debug mode.
 
 ## Queue flush and the rate limits

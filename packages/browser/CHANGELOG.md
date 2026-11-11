@@ -17,16 +17,19 @@
   - Browser: an opaque failure (an old Beacon's `404` has no CORS headers) is re-sent to the alias only while nothing is
     known about the server, at most once per DSN every 5 minutes (audit LOD-L1: a network outage on both paths no
     longer cuts the page off an older Beacon for good), never while the browser is offline, and never after the SDK's
-    own timeout.
+    own timeout. While that 5-minute marker lives, opaque failures of the versioned path do not count toward the
+    "3 opaque failures" disable (LO2-L1).
     Unload requests (`sendBeacon`) use the alias until the path is known, because they cannot report a status.
   - `'versioned'`: always the versioned path (Beacon ≥ 1.147).
   - `'legacy'`: always the unversioned alias.
   
   Security (audit LO-M2, Low): the fetch transport never follows redirects (`redirect: 'manual'`, set after
   `fetchInit` so it cannot be overridden); a `3xx` or an opaque redirect is a failed send. In 0.1.0, Node's `fetch`
-  followed a 307/308 from the Beacon URL and forwarded `X-Beacon-Auth` (the DSN secret) and the body to the redirect
-  target. Affected: `@nowo-tech/beacon-node` < 0.2.0 (and `@nowo-tech/beacon-core` < 0.2.0 used from Node with a DSN
-  secret); browsers never send the secret. Fixed in 0.2.0.
+  followed any redirect (301/302/303/307/308) from the Beacon URL and forwarded `X-Beacon-Auth` (the DSN secret) to
+  the redirect target, cross-origin included: as a `GET` without the body on 301/302/303, with the body on 307/308.
+  Affected: `@nowo-tech/beacon-node` < 0.2.0, `@nowo-tech/beacon-express` < 0.2.0 (it pins `beacon-node` 0.1.0) and
+  `@nowo-tech/beacon-core` < 0.2.0 used from Node with a DSN secret; browsers never send the secret. Fixed in 0.2.0:
+  upgrade and rotate the DSN secret.
   
   `ParsedDsn.envelopeUrl()` and `otlpUrl()` now return the versioned URLs; the default parser adds
   `legacyEnvelopeUrl()` / `legacyOtlpUrl()` (optional members: a custom parser without them never falls back), and
@@ -34,7 +37,7 @@
   
   Size gates: core 11 → 11.3 kB, core + browser 14.5 → 14.8 kB, IIFE 17.5 → 17.8 kB (gzip), for the path fallback, its
   cache, the route-proof rule and self-heal (audit LO-M1), the bounded opaque fallback (LO-L2) and the redirect refusal
-  (LO-M2). Measured after the change: core 11.27 kB, core + browser 14.79 kB, IIFE 17.78 kB, offline queue unchanged at
+  (LO-M2). Measured after the change: core 11.28 kB, core + browser 14.8 kB, IIFE 17.8 kB, offline queue unchanged at
   1.02 kB.
 
 ### Patch Changes
