@@ -10,6 +10,8 @@ export type {
 } from './client.js';
 export { dedupeIntegration, dedupeKey } from './dedupe.js';
 export * from './dsn.js';
+export { INGEST_PATH_CACHE_SIZE, resetIngestPaths } from './ingest-paths.js';
+export type { IngestPaths } from './ingest-paths.js';
 export { encodeEnvelope, serializeLine } from './envelope.js';
 export type { EnvelopeItem } from './envelope.js';
 export { exceptionsFromError } from './exception.js';

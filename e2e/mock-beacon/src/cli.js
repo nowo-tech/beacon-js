@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Starts the mock Beacon (and, optionally, a static file server for e2e pages on another origin).
-// Usage: mock-beacon --port 4200 [--origin http://localhost:4100] [--static <dir> --static-port 4100] [--legacy]
+// Usage: mock-beacon --port 4200 [--origin http://localhost:4100] [--static <dir> --static-port 4100] [--legacy] [--legacy-only-paths]
 import { createHash } from 'node:crypto';
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -16,6 +16,7 @@ const origins = args.flatMap((arg, i) => (arg === '--origin' ? [args[i + 1]] : [
 const mock = createMockBeacon({
   allowedOrigins: origins,
   mode: args.includes('--legacy') ? 'legacy' : 'current',
+  paths: args.includes('--legacy-only-paths') ? 'legacy-only' : 'all',
 });
 const port = Number(option('port', '4200'));
 const host = option('host', '127.0.0.1');

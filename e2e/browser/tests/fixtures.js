@@ -8,8 +8,11 @@ export const DSN =
 export const test = base.extend({
   beacon: async ({ request }, use) => {
     await request.delete(`${BEACON}/__requests`);
-    await request.post(`${BEACON}/__config`, { data: { rules: { rateLimits: false } } });
+    await request.post(`${BEACON}/__config`, {
+      data: { paths: 'all', rules: { rateLimits: false } },
+    });
     const api = {
+      configure: async (data) => request.post(`${BEACON}/__config`, { data }),
       requests: async () => await (await request.get(`${BEACON}/__requests`)).json(),
       script: async (...responses) => request.post(`${BEACON}/__script`, { data: responses }),
       events: async () =>

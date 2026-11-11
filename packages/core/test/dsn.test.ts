@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { BeaconConfigError, defaultDsnParser, publicDsn } from '../src/dsn.js';
+import {
+  BeaconConfigError,
+  defaultDsnParser,
+  otlpEndpoint,
+  publicDsn,
+  type ParsedDsn,
+} from '../src/dsn.js';
 
 const UUID = '00000000-0000-4000-8000-000000000001';
 
@@ -17,8 +23,18 @@ describe('DSN parser', () => {
       secret: 'test-secret-not-real',
       kind: 'server',
     });
-    expect(dsn.envelopeUrl()).toBe(`https://beacon.test:8443/beacon/api/${UUID}/envelope/`);
-    expect(dsn.otlpUrl('logs')).toBe(`https://beacon.test:8443/beacon/api/${UUID}/otlp/v1/logs`);
+    expect(dsn.envelopeUrl()).toBe(
+      `https://beacon.test:8443/beacon/api/ingest/v1/${UUID}/envelope/`,
+    );
+    expect(dsn.otlpUrl('logs')).toBe(
+      `https://beacon.test:8443/beacon/api/ingest/v1/${UUID}/otlp/v1/logs`,
+    );
+    expect(dsn.legacyEnvelopeUrl?.()).toBe(`https://beacon.test:8443/beacon/api/${UUID}/envelope/`);
+    expect(dsn.legacyOtlpUrl?.('metrics')).toBe(
+      `https://beacon.test:8443/beacon/api/${UUID}/otlp/v1/metrics`,
+    );
+    expect(otlpEndpoint(dsn)).toBe(`https://beacon.test:8443/beacon/api/ingest/v1/${UUID}/otlp`);
+    expect(otlpEndpoint(dsn, true)).toBe(`https://beacon.test:8443/beacon/api/${UUID}/otlp`);
     expect(publicDsn(dsn)).toBe(`https://pk@beacon.test:8443/beacon/${UUID}`);
     expect(publicDsn(dsn, true)).toBe(
       `https://pk:test-secret-not-real@beacon.test:8443/beacon/${UUID}`,
@@ -34,12 +50,21 @@ describe('DSN parser', () => {
       protocol: 'http',
     });
     expect(dsn.secret).toBeUndefined();
-    expect(dsn.envelopeUrl()).toBe('http://localhost:4200/api/42/envelope/');
+    expect(dsn.envelopeUrl()).toBe('http://localhost:4200/api/ingest/v1/42/envelope/');
+    expect(dsn.legacyEnvelopeUrl?.()).toBe('http://localhost:4200/api/42/envelope/');
     expect(publicDsn(dsn, true)).toBe('http://bk_test_0000@localhost:4200/42');
     expect(defaultDsnParser.parse(`http://bk_x@127.0.0.1/${UUID}`).host).toBe('127.0.0.1');
     expect(defaultDsnParser.parse(`http://bk_x@host.docker.internal/${UUID}`).host).toBe(
       'host.docker.internal',
     );
+  });
+
+  it('keeps the versioned OTLP endpoint for a custom parser without legacy URLs', () => {
+    const custom: ParsedDsn = {
+      ...defaultDsnParser.parse(`https://pk:test-secret-not-real@beacon.test/${UUID}`),
+    };
+    delete custom.legacyOtlpUrl;
+    expect(otlpEndpoint(custom, true)).toBe(`https://beacon.test/api/ingest/v1/${UUID}/otlp`);
   });
 
   it.each([

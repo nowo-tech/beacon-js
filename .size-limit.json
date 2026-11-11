@@ -4,20 +4,20 @@
     "path": "packages/core/dist/index.mjs",
     "import": "{ initClient, captureException, makeFetchTransport }",
     "gzip": true,
-    "limit": "11 kB"
+    "limit": "11.2 kB"
   },
   {
     "name": "core + browser default integrations (Beacon.init with defaults)",
     "path": "packages/browser/dist/index.mjs",
     "import": "{ init, captureException }",
     "gzip": true,
-    "limit": "14.5 kB"
+    "limit": "14.7 kB"
   },
   {
     "name": "IIFE beacon.min.js including <beacon-reporter>",
     "path": "packages/browser/dist/delivery/beacon.min.js",
     "gzip": true,
-    "limit": "17.5 kB"
+    "limit": "17.7 kB"
   },
   {
     "name": "offline queue (IndexedDB), opt-in import",

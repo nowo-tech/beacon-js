@@ -45,6 +45,7 @@ describe('<beacon-reporter>', () => {
       'sample-rate': '1',
       'user-id': 'u1',
       'ignore-errors': 'Foo; ;Bar',
+      'ingest-paths': 'legacy',
       debug: '',
     });
     expect(ready).toHaveBeenCalled();
@@ -57,6 +58,7 @@ describe('<beacon-reporter>', () => {
       environment: 'staging',
       sampleRate: 1,
       ignoreErrors: ['Foo', 'Bar'],
+      ingestPaths: 'legacy',
       debug: true,
     });
     expect(getCurrentScope().user).toEqual({ id: 'u1' });
@@ -71,7 +73,8 @@ describe('<beacon-reporter>', () => {
 
   it('fires beacon:dropped and beacon:error', async () => {
     stubFetch(403);
-    const element = mount({ dsn: DSN, 'sample-rate': 'nope' });
+    const element = mount({ dsn: DSN, 'sample-rate': 'nope', 'ingest-paths': 'nope' });
+    expect(getClient()!.options.ingestPaths).toBeUndefined();
     const outcomes: string[] = [];
     element.addEventListener('beacon:error', (e) =>
       outcomes.push(`error:${(e as CustomEvent).detail.status}`),

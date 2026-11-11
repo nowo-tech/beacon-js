@@ -212,6 +212,7 @@ export interface ClientOptions {
     inAppExclude?: Array<string | RegExp>;
     // (undocumented)
     inAppInclude?: Array<string | RegExp>;
+    ingestPaths?: IngestPaths;
     // (undocumented)
     initialScope?: CaptureContext;
     // (undocumented)
@@ -389,6 +390,12 @@ export function groupingInputs(event: BeaconEvent): {
 export function headerBrowserKeyAuth(): AuthProvider;
 
 // @public
+export const INGEST_PATH_CACHE_SIZE = 32;
+
+// @public
+export type IngestPaths = 'auto' | 'versioned' | 'legacy';
+
+// @public
 export function initClient(options: ClientOptions, platform: PlatformConfig): Client;
 
 // @public (undocumented)
@@ -496,17 +503,20 @@ export interface NormalizeLimits {
 // @public
 export function normalizeUrlFilename(absPath: string): string;
 
+// @public
+export function otlpEndpoint(dsn: ParsedDsn, legacy?: boolean): string;
+
 // @public (undocumented)
 export type OtlpSignal = 'logs' | 'traces' | 'metrics';
 
 // @public (undocumented)
 export interface ParsedDsn {
-    // (undocumented)
     envelopeUrl(): string;
     host: string;
     // (undocumented)
     kind: 'server' | 'browser';
-    // (undocumented)
+    legacyEnvelopeUrl?(): string;
+    legacyOtlpUrl?(signal: OtlpSignal): string;
     otlpUrl(signal: OtlpSignal): string;
     pathPrefix: string;
     projectId: string;
@@ -625,6 +635,9 @@ export interface RequestData {
     // (undocumented)
     url?: string;
 }
+
+// @public
+export function resetIngestPaths(): void;
 
 // @public
 export function schedule(fn: () => void, ms: number): ReturnType<typeof setTimeout>;

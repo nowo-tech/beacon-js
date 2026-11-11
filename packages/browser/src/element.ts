@@ -99,6 +99,9 @@ export class BeaconReporter extends HTMLElement {
       const value = this.getAttribute(name);
       if (value !== null) options[name] = value;
     }
+    const paths = this.getAttribute('ingest-paths');
+    if (paths === 'auto' || paths === 'versioned' || paths === 'legacy')
+      options.ingestPaths = paths;
     const rate = this.getAttribute('sample-rate');
     if (rate !== null && rate !== '' && !Number.isNaN(Number(rate)))
       options.sampleRate = Math.min(1, Math.max(0, Number(rate)));

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { beaconServerAuth } from '../src/auth.js';
 import { BeaconConfigError } from '../src/dsn.js';
 import { Client, type ClientOptions, type Integration } from '../src/client.js';
+import { resetIngestPaths } from '../src/ingest-paths.js';
 import { makeMemoryQueue } from '../src/queue.js';
 import { Scope } from '../src/scope.js';
 import type { TransportResult } from '../src/transport.js';
@@ -25,7 +26,8 @@ function make(
 ) {
   const transport = recordingTransport(...results);
   const client = new Client(
-    { dsn: BROWSER_DSN, transport, clock, random: () => 0, ...options },
+    // The path fallback has its own tests (ingest-paths.test.ts); here every request goes to one URL.
+    { dsn: BROWSER_DSN, transport, clock, random: () => 0, ingestPaths: 'versioned', ...options },
     platform(overrides),
   ).setup();
   return { client, transport };
@@ -45,6 +47,7 @@ const reports = (transport: RecordingTransport) =>
   transport.requests.filter((r) => r.category === 'internal').map((r) => parseEnvelope(r.body));
 
 beforeEach(() => {
+  resetIngestPaths();
   now = 1_000_000;
   vi.useFakeTimers({ now });
 });
@@ -135,7 +138,7 @@ describe('Client capture pipeline', () => {
     expect(transport.requests).toHaveLength(1);
     const request = transport.requests[0]!;
     expect(request.url).toBe(
-      'https://beacon.test/api/00000000-0000-4000-8000-000000000001/envelope/',
+      'https://beacon.test/api/ingest/v1/00000000-0000-4000-8000-000000000001/envelope/',
     );
     expect(request.eventId).toBe(id);
     expect(request.headers).toEqual({});

@@ -18,6 +18,7 @@
 | `transport`                             | fetch transport                                         | custom `Transport`                                                         |
 | `maxEnvelopeBytes`                      | browser 200 000, Node 1 MiB                             | the browser can only lower it                                              |
 | `compression`                           | `false`                                                 | uncompressed; `'auto'` (requires Beacon ≥ 1.143, see below) gzips          |
+| `ingestPaths`                           | `'auto'`                                                | `'versioned'` / `'legacy'` force one ingest path (see below)               |
 | `throttle`                              | browser 30/min, burst 5, 0.5/s; Node 100/min, 20, 1.6/s | the browser can only lower it                                              |
 | `maxEventsPerSession`                   | browser 100                                             |                                                                            |
 | `sendClientReports`                     | `true`                                                  | `client_report` in its own envelope, at most once per 60 s and on unload   |
@@ -39,6 +40,39 @@ Browser only: `resourceErrors` (`'breadcrumb'` | `'event'` | `false`), `failedRe
 `compression: 'auto'` is an explicit opt-in that **requires Beacon ≥ 1.143**. It gzips bodies over 32 kB in the browser
 (with `CompressionStream`, never while the page unloads) and over 1 kB in Node (level 6). A body whose ratio would
 exceed 50:1 is still sent uncompressed, since Beacon refuses it with `413`.
+
+## Ingest paths
+
+Beacon 1.147 serves the ingest under versioned paths (D-20261110-04) and keeps the old ones as **permanent** aliases:
+
+| What      | Versioned (canonical)                                                      | Unversioned alias                                   |
+| --------- | -------------------------------------------------------------------------- | --------------------------------------------------- |
+| Envelope  | `{origin}{prefix}/api/ingest/v1/{projectId}/envelope/`                     | `{origin}{prefix}/api/{projectId}/envelope/`        |
+| OTLP/HTTP | `{origin}{prefix}/api/ingest/v1/{projectId}/otlp/v1/{traces,logs,metrics}` | `{origin}{prefix}/api/{projectId}/otlp/v1/{signal}` |
+
+`ingestPaths` (`<beacon-reporter ingest-paths="…">`) chooses the envelope path:
+
+- `'auto'` (default) works with every Beacon. The first envelope goes to the versioned path. If the server does not
+  know it, the same envelope is sent **once** to the alias: on `404` or `405`, and in the browser also on an opaque
+  failure, because an older Beacon answers an unknown path with a `404` that carries no CORS headers. The answer is
+  remembered per DSN (origin, path prefix and project) for the life of the page or process, so later envelopes go
+  straight to the right path with a single request. Any other answer (`2xx`, `400`, `401`, `403`, `413`, `429`,
+  `5xx`) is final and handled as described below: an envelope that Beacon accepted or refused is never sent twice.
+  A current Beacon answers every browser envelope, accepted or refused, with CORS headers, so the opaque-failure
+  fallback cannot re-send an accepted envelope. Network failures are never remembered. While the path is unknown,
+  requests made as the page unloads (`sendBeacon`, which cannot report a status) use the alias.
+- `'versioned'`: always the versioned path (Beacon ≥ 1.147); no fallback.
+- `'legacy'`: always the alias.
+
+The memory is a module-level map bounded to 32 DSNs (oldest evicted). It describes the server, never a user or a
+request, so it is safe in long-lived Node processes; `resetIngestPaths()` clears it (tests, or a Beacon upgraded
+under a running process that should switch back to the versioned path before a restart).
+
+`ParsedDsn.envelopeUrl()` / `otlpUrl(signal)` return the versioned URLs; the default parser also has
+`legacyEnvelopeUrl()` / `legacyOtlpUrl(signal)` (optional members of `ParsedDsn`: a custom `dsnParser` without them
+always uses `envelopeUrl()`). `otlpEndpoint(dsn)` gives the OTLP/HTTP exporter base URL
+(`…/api/ingest/v1/{projectId}/otlp`, the exporter appends `/v1/{signal}`); `otlpEndpoint(dsn, true)` the alias for a
+Beacon older than 1.147. OTLP exporters have no fallback of their own: pick the one your Beacon serves.
 
 ## Transport behaviour
 

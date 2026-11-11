@@ -4,6 +4,7 @@ import { BeaconConfigError, defaultDsnParser, type DsnParser, type ParsedDsn } f
 import { encodeEnvelope, serializeLine } from './envelope.js';
 import { exceptionsFromError } from './exception.js';
 import { expandFingerprint } from './fingerprint.js';
+import { knownIngestPath, rememberIngestPath, type IngestPaths } from './ingest-paths.js';
 import { stripIp } from './privacy.js';
 import type { EnvelopeQueue, QueuedEnvelope } from './queue.js';
 import { backoffDelay, MAX_RETRY_AFTER_MS } from './ratelimit.js';
@@ -86,6 +87,11 @@ export interface ClientOptions {
    * 1 kB) and requires Beacon ≥ 1.143, the first ingest that decompresses `Content-Encoding: gzip`.
    */
   compression?: 'auto' | false;
+  /**
+   * `'auto'` (default): the versioned ingest path `/api/ingest/v1/…` (Beacon ≥ 1.147) first, then the unversioned
+   * alias once if the server does not know it, remembered per DSN. `'versioned'` / `'legacy'` force one.
+   */
+  ingestPaths?: IngestPaths;
   scrubber?: false | Scrubber;
   /** Envelope queue for retries and offline use; `false` disables it. */
   queue?: EnvelopeQueue | false;
@@ -486,18 +492,58 @@ export class Client {
     this.inFlight++;
     let result: TransportResult;
     try {
-      result = await this.transport!.send({
-        url: this.dsn!.envelopeUrl(),
-        headers: { ...this.headers },
-        body,
-        category: envelope.category,
-        ...(envelope.eventId ? { eventId: envelope.eventId } : {}),
-        ...(unload ? { unload } : {}),
-      });
+      result = await this.sendToIngest(
+        (url) =>
+          this.transport!.send({
+            url,
+            headers: { ...this.headers },
+            body,
+            category: envelope.category,
+            ...(envelope.eventId ? { eventId: envelope.eventId } : {}),
+            ...(unload ? { unload } : {}),
+          }),
+        unload,
+      );
     } finally {
       this.inFlight--;
     }
     return this.handleResult(result, envelope, fromQueue, byteLength(body));
+  }
+
+  /**
+   * Picks the envelope URL (`ingestPaths`). In `auto` mode, while the path of the DSN's server is unknown, the
+   * versioned URL is tried first and the unversioned alias once when the answer is `404`/`405` (Beacon < 1.147), or,
+   * in the browser, an opaque failure (an old Beacon's `404` carries no CORS headers). Any other answer is final, so an
+   * envelope that Beacon accepted or refused is never sent twice. Unload requests use the alias until the path is
+   * known (`sendBeacon` cannot report a status). The answer is remembered per DSN for the life of the page / process.
+   */
+  private async sendToIngest(
+    send: (url: string) => Promise<TransportResult>,
+    unload: boolean,
+  ): Promise<TransportResult> {
+    const dsn = this.dsn!;
+    const mode = this.options.ingestPaths;
+    const legacy = dsn.legacyEnvelopeUrl?.();
+    if (!legacy || mode === 'versioned') return send(dsn.envelopeUrl());
+    const known = mode === 'legacy' ? mode : knownIngestPath(legacy);
+    if (known === 'legacy' || (!known && unload)) return send(legacy);
+    const first = await send(dsn.envelopeUrl());
+    if (known) return first;
+    const status = statusOf(first);
+    if (
+      !isMissingRoute(status) &&
+      (first.kind !== 'retry' ||
+        first.reason !== 'network' ||
+        this.platform.platform !== 'javascript')
+    ) {
+      if (status) rememberIngestPath(legacy, 'versioned');
+      return first;
+    }
+    const second = await send(legacy);
+    const secondStatus = statusOf(second);
+    if (secondStatus)
+      rememberIngestPath(legacy, isMissingRoute(secondStatus) ? 'versioned' : 'legacy');
+    return second;
   }
 
   private handleResult(
@@ -638,3 +684,10 @@ export class Client {
     for (const integration of this.integrations) integration.teardown?.();
   }
 }
+
+/** The HTTP status behind a transport result (`200` for `ok`), `undefined` without a response. */
+const statusOf = (result: TransportResult): number | undefined =>
+  result.kind === 'ok' ? 200 : result.status;
+
+/** `404` / `405`: the server has no such ingest route. */
+const isMissingRoute = (status: number | undefined): boolean => status === 404 || status === 405;

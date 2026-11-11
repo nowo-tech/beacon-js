@@ -156,13 +156,18 @@ test.describe('<beacon-reporter> from the IIFE', () => {
   }) => {
     await page.goto('http://localhost:4100/index.html');
     await throwInPage(page, 'refused 1');
-    await expect.poll(async () => (await beacon.requests()).length).toBe(1);
-    const [refused] = await beacon.requests();
-    expect(refused.status).toBe(403);
+    // The opaque failure on the versioned path is retried once on the unversioned alias (it could be a Beacon < 1.147
+    // whose 404 has no CORS headers); both are refused, nothing is remembered, and the client backs off.
+    await expect.poll(async () => (await beacon.requests()).length).toBe(2);
+    const refused = await beacon.requests();
+    expect(refused.map((r) => [r.path, r.status])).toEqual([
+      ['/api/ingest/v1/00000000-0000-4000-8000-000000000001/envelope/', 403],
+      ['/api/00000000-0000-4000-8000-000000000001/envelope/', 403],
+    ]);
     await throwInPage(page, 'refused 2');
     await throwInPage(page, 'refused 3');
     await page.waitForTimeout(2000);
-    expect(await beacon.requests()).toHaveLength(1);
+    expect(await beacon.requests()).toHaveLength(2);
   });
 });
 
