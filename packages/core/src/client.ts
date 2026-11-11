@@ -525,8 +525,9 @@ export class Client {
    * - `2xx` or a Beacon `400`/`401`/`403`/`413`/`415`/`422` → versioned is remembered.
    * - `408`, `429`, `5xx`, other statuses, network failures and timeouts → nothing is learned, nothing re-sent.
    * - Browser only: an opaque failure (an old Beacon's `404` carries no CORS headers) is re-sent to the alias only while
-   *   nothing is known about the target, at most once per target (audit LO-L2), and never after a timeout, since the
-   *   first request may have been accepted.
+   *   nothing is known about the target, at most once per target and 5 minutes (audit LO-L2, LOD-L1), never while
+   *   the browser reports itself offline (an outage, not a missing route), and never after a timeout, since the first
+   *   request may have been accepted.
    * Unload requests use the alias until the versioned path is known (`sendBeacon` cannot report a status).
    */
   private async sendToIngest(
@@ -537,7 +538,7 @@ export class Client {
     const mode = this.options.ingestPaths;
     const legacy = dsn.legacyEnvelopeUrl?.();
     if (!legacy || mode === 'versioned') return send(dsn.envelopeUrl());
-    const known = mode === 'legacy' ? mode : knownIngestPath(legacy);
+    const known = mode === 'legacy' ? mode : knownIngestPath(legacy, this.now());
     if (known === 'legacy' || (known !== 'versioned' && unload)) return send(legacy);
     const first = await send(dsn.envelopeUrl());
     const status = statusOf(first);
@@ -554,9 +555,10 @@ export class Client {
       first.kind === 'retry' &&
       first.reason === 'network' &&
       !first.timedOut &&
-      this.platform.platform === 'javascript'
+      this.platform.platform === 'javascript' &&
+      this.platform.isOnline?.() !== false
     ) {
-      rememberIngestPath(legacy, 'opaque');
+      rememberIngestPath(legacy, 'opaque', this.now());
       return this.sendToAlias(send, legacy);
     }
     return first;

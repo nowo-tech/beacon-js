@@ -25,16 +25,14 @@ Running the workflow by hand is a dry run (`dry_run: true`); it publishes only f
 
 ## Authentication
 
-If the `npm-publish` environment has an `NPM_TOKEN` secret, it is used; otherwise the workflow
-uses npm trusted publishing (OIDC). Trusted publishing needs each package to exist on npm first, hence a one-time
-bootstrap with a token (done for 0.1.0 on 2026-11-09):
+Publishing uses npm trusted publishing (OIDC) only. The `npm-publish` environment has **no secrets**: the bootstrap
+token used for the first publish of 0.1.0 (2026-11-09) has been deleted from the environment and revoked on npmjs.com,
+and the workflow no longer has a token branch. Each of the four packages has a trusted publisher on npmjs.com bound
+to GitHub Actions, repository `nowo-tech/beacon-js`, workflow `release.yml` and environment `npm-publish`.
 
-1. **Token, first publish.** A granular access token on npmjs.com with publish rights limited to the `@nowo-tech`
-   scope and a short expiry, stored only as the `NPM_TOKEN` secret of the `npm-publish` environment.
-2. **Trusted publishers.** On npmjs.com, for each of the four packages, add a trusted publisher: GitHub Actions,
-   repository `nowo-tech/beacon-js`, workflow `release.yml`, environment `npm-publish`.
-3. **Delete the token.** Remove the `NPM_TOKEN` secret from the environment and revoke the token on npmjs.com.
-   From then on every release uses OIDC trusted publishing, and no long-lived npm credential exists.
+A brand-new package (a fifth one) cannot use trusted publishing before it exists on npm: publish its first version
+by hand with a short-lived granular token, add its trusted publisher, then revoke the token. Never store a token in
+the repository or the `npm-publish` environment.
 
 Repository settings that releases rely on (environment `npm-publish`, tag ruleset, branch protection) are listed in
 [CONTRIBUTING](../CONTRIBUTING.md#required-github-settings-owner-before-publishing).

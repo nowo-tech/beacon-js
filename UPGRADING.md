@@ -1,6 +1,6 @@
 # Upgrading
 
-## Unreleased (0.2.0)
+## 0.2.0
 
 Envelopes now go to Beacon's versioned ingest path `/api/ingest/v1/{projectId}/envelope/` (Beacon 1.147). Nothing to
 change for most applications: the default `ingestPaths: 'auto'` falls back once to the unversioned
@@ -16,8 +16,10 @@ Beacon you report to is 1.147 or later.
 - Content Security Policy: `connect-src` already allows the Beacon origin; the path changes nothing there.
 - Tests that assert envelope URLs, or that run several fake servers on one DSN, can call `resetIngestPaths()`
   between cases.
-- Redirects are no longer followed (`redirect: 'manual'`, also over `fetchInit`): a Beacon URL that answers a
-  `3xx` drops the envelope. Point the DSN at the final Beacon URL.
+- Security (audit LO-M2): redirects are no longer followed (`redirect: 'manual'`, also over `fetchInit`): a Beacon
+  URL that answers a `3xx` drops the envelope. Point the DSN at the final Beacon URL. In 0.1.0, Node's `fetch`
+  followed a 307/308 and forwarded `X-Beacon-Auth` (the DSN secret) and the body to the redirect target, so
+  `@nowo-tech/beacon-node` < 0.2.0 users whose Beacon URL could redirect should upgrade and rotate the DSN secret.
 - Short-lived processes (serverless functions, CLI runs) against Beacon < 1.147 pay the extra `404` on every run:
   set `ingestPaths: 'legacy'` there until Beacon is upgraded.
 

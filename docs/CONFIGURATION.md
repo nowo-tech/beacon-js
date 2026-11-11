@@ -73,8 +73,10 @@ Beacon 1.147 serves the ingest under versioned paths (D-20261110-04) and keeps t
   In the browser an older Beacon answers an unknown path with a `404` that carries no CORS headers, so the fetch fails
   opaquely. A current Beacon's IP-limiter `429` and its origin-gate `401`/`403` are opaque too, so the opaque-failure
   fallback is limited: it re-sends to the alias only while nothing is known about the server, at most once per DSN
-  (if the alias is opaque as well, later opaque failures are not re-sent), and never after the SDK's own timeout,
-  because the first request may have been accepted. While the path is unknown, requests made as the page unloads
+  every 5 minutes (if the alias is opaque as well, opaque failures are not re-sent for 5 minutes, then the fallback is
+  tried again, so a network outage on the first envelope cannot cut a page off an older Beacon), never while the
+  browser reports itself offline, and never after the SDK's own timeout, because the first request may have been
+  accepted. While the path is unknown, requests made as the page unloads
   (`sendBeacon`, which cannot report a status) use the alias.
 
 - `'versioned'`: always the versioned path (Beacon ≥ 1.147); no fallback.

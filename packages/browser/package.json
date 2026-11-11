@@ -1,6 +1,6 @@
 {
   "name": "@nowo-tech/beacon-browser",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Beacon SDK for browsers: global error handlers, HTTP and DOM breadcrumbs, the <beacon-reporter> web component, ESM and IIFE builds.",
   "keywords": [
     "beacon",

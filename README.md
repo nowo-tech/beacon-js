@@ -30,7 +30,7 @@ Beacon.init({ dsn: 'https://bk_xxx@beacon.example/<project-uuid>', release: 'sho
 
 ```html
 <script
-  src="https://beacon.example/sdk/beacon-browser/0.1.0/beacon.min.js"
+  src="https://beacon.example/sdk/beacon-browser/0.2.0/beacon.min.js"
   integrity="sha384-…"
   crossorigin="anonymous"
 ></script>

@@ -1,6 +1,6 @@
 {
   "name": "@nowo-tech/beacon-node",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Beacon SDK for Node.js: process handlers, HTTP breadcrumbs, request isolation, gzip and a file queue.",
   "keywords": [
     "beacon",

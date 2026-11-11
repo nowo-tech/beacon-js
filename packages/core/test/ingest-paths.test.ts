@@ -5,6 +5,7 @@ import {
   forgetIngestPath,
   INGEST_PATH_CACHE_SIZE,
   knownIngestPath,
+  OPAQUE_FALLBACK_TTL_MS,
   provesRoute,
   rememberIngestPath,
   resetIngestPaths,
@@ -180,6 +181,49 @@ describe('ingest paths (auto)', () => {
     expect(knownIngestPath(TARGET)).toBe('opaque');
     await send(client);
     expect(urls()).toEqual([VERSIONED, LEGACY, VERSIONED]);
+  });
+
+  it('browser: audit LOD-L1 sequence (V:retry L:retry V:retry …) recovers once the opaque marker expires', async () => {
+    // Beacon < 1.147 behind a network blip: both paths fail by network on the first send. The 'opaque' marker must not
+    // be permanent, or the page would only ever try the versioned path (an opaque 404) and disable itself.
+    let now = 1_000_000;
+    const { client, urls } = make(
+      { clock: () => now },
+      {},
+      network, // V
+      network, // L: marked 'opaque'
+      network, // V: no fallback while the marker lives
+      network, // V after the TTL: fallback again
+      { kind: 'ok' }, // L: the old Beacon's alias answers
+    );
+    await send(client);
+    expect(urls()).toEqual([VERSIONED, LEGACY]);
+    expect(knownIngestPath(TARGET, now)).toBe('opaque');
+
+    now += 60_000;
+    await send(client);
+    expect(urls()).toEqual([VERSIONED, LEGACY, VERSIONED]);
+
+    now += OPAQUE_FALLBACK_TTL_MS;
+    expect(knownIngestPath(TARGET, now)).toBeUndefined();
+    await send(client);
+    expect(urls()).toEqual([VERSIONED, LEGACY, VERSIONED, VERSIONED, LEGACY]);
+    expect(knownIngestPath(TARGET, now)).toBe('legacy');
+  });
+
+  it('browser: no opaque fallback while the browser is offline (LOD-L1)', async () => {
+    const { client, urls } = make({}, { isOnline: () => false }, network);
+    await send(client);
+    expect(urls()).toEqual([VERSIONED]);
+    expect(knownIngestPath(TARGET)).toBeUndefined();
+  });
+
+  it('the opaque marker expires, a learned path does not', () => {
+    rememberIngestPath(TARGET, 'opaque', 0);
+    expect(knownIngestPath(TARGET, OPAQUE_FALLBACK_TTL_MS - 1)).toBe('opaque');
+    expect(knownIngestPath(TARGET, OPAQUE_FALLBACK_TTL_MS)).toBeUndefined();
+    rememberIngestPath(TARGET, 'legacy', 0);
+    expect(knownIngestPath(TARGET, Number.MAX_SAFE_INTEGER)).toBe('legacy');
   });
 
   it('browser: after an opaque failure, a visible answer still decides', async () => {

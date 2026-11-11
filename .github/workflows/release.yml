@@ -6,7 +6,7 @@ name: Release
 #   It has no npm credential and no `id-token: write`.
 # - `publish` (tags only, and only when the repository variable NPM_PUBLISH_ENABLED is 'true') downloads the packed
 #   tarballs, runs no `pnpm install` and no dependency code, and is the only job with `id-token: write` and the
-#   `npm-publish` environment (trusted publishing; optional bootstrap NPM_TOKEN). Versions already on npm are skipped,
+#   `npm-publish` environment (npm trusted publishing, OIDC only: the environment has no secrets). Versions already on npm are skipped,
 #   so a failed run can be re-run.
 # - `github-release` (tags only, after publish) creates the GitHub release with the browser bundles and checksums.
 # See "Releasing" in CONTRIBUTING.md.
@@ -121,18 +121,11 @@ jobs:
         run: |
           v=$(npm --version); echo "npm $v"
           [ "$(printf '%s\n' "$NPM_MIN_VERSION" "$v" | sort -V | head -1)" = "$NPM_MIN_VERSION" ] || { echo "npm $v < $NPM_MIN_VERSION"; exit 1; }
-      - name: Publish to npm (bootstrap token if present, otherwise trusted publishing)
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to npm (trusted publishing, OIDC)
         run: |
           set -euo pipefail
-          if [ -n "${NPM_TOKEN}" ]; then
-            echo "Authenticating with the NPM_TOKEN secret of the npm-publish environment (bootstrap)."
-            printf '//registry.npmjs.org/:_authToken=%s\n' "${NPM_TOKEN}" > "${RUNNER_TEMP}/.npmrc"
-          else
-            echo "No NPM_TOKEN: npm trusted publishing (OIDC)."
-            : > "${RUNNER_TEMP}/.npmrc"
-          fi
+          # No token anywhere: an empty user config, so only the OIDC exchange of npm >= 11.5 can authenticate.
+          : > "${RUNNER_TEMP}/.npmrc"
           export NPM_CONFIG_USERCONFIG="${RUNNER_TEMP}/.npmrc"
           trap 'rm -f "${RUNNER_TEMP}/.npmrc"' EXIT
           for pkg in core browser node express; do

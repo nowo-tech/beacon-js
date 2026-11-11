@@ -11,7 +11,8 @@ export type IngestPaths = 'auto' | 'versioned' | 'legacy';
 
 /**
  * What the client knows about a target: the path it serves, or `'opaque'` once a browser opaque failure was already
- * re-sent to the alias without an answer (no further opaque fallback for that target).
+ * re-sent to the alias without an answer (no further opaque fallback for that target for
+ * {@link OPAQUE_FALLBACK_TTL_MS}).
  */
 export type KnownIngestPath = 'versioned' | 'legacy' | 'opaque';
 
@@ -33,18 +34,33 @@ export const provesRoute = (status: number): boolean =>
 export const isMissingRoute = (status: number | undefined): boolean =>
   status === 404 || status === 405;
 
+/**
+ * How long an `'opaque'` marker lives (audit LOD-L1): both paths failing opaquely can also be a network outage, so the
+ * opaque fallback is tried again after this delay instead of never (which, against Beacon < 1.147, would leave the
+ * page sending to the versioned path only and disable the client after three opaque failures).
+ */
+export const OPAQUE_FALLBACK_TTL_MS = 5 * 60_000;
+
 // Module-level on purpose: keyed by the DSN's unversioned envelope URL (origin + path prefix + project id), the answer
 // describes a Beacon server, never a user or a request, and it is bounded, so it is safe in long-lived Node workers.
-const resolved = new Map<string, KnownIngestPath>();
+const resolved = new Map<string, [path: KnownIngestPath, until: number]>();
 
 /** What a Beacon target (its unversioned envelope URL) is known to serve, if a previous send found out. */
-export const knownIngestPath = (target: string): KnownIngestPath | undefined =>
-  resolved.get(target);
+export function knownIngestPath(target: string, now = Date.now()): KnownIngestPath | undefined {
+  const entry = resolved.get(target);
+  return entry && entry[1] > now ? entry[0] : undefined;
+}
 
-/** Remembers the newest answer for a Beacon target (bounded to {@link INGEST_PATH_CACHE_SIZE} entries). */
-export function rememberIngestPath(target: string, path: KnownIngestPath): void {
+/**
+ * Remembers the newest answer for a Beacon target (bounded to {@link INGEST_PATH_CACHE_SIZE} entries). `'opaque'`
+ * expires after {@link OPAQUE_FALLBACK_TTL_MS}; a path never expires.
+ */
+export function rememberIngestPath(target: string, path: KnownIngestPath, now = Date.now()): void {
   resolved.delete(target);
-  if (resolved.set(target, path).size > INGEST_PATH_CACHE_SIZE)
+  if (
+    resolved.set(target, [path, path === 'opaque' ? now + OPAQUE_FALLBACK_TTL_MS : Infinity]).size >
+    INGEST_PATH_CACHE_SIZE
+  )
     resolved.delete(resolved.keys().next().value!);
 }
 

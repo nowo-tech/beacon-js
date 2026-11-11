@@ -32,7 +32,7 @@ pnpm golden:check   # regenerates fixtures/envelopes/golden and fails on any byt
 These are repository settings, so they are not in the code; set them before `NPM_PUBLISH_ENABLED` is ever `true`:
 
 - **Environment `npm-publish`**: deployments limited to `v*` tags, no required reviewers (the tag is the approval),
-  and no secrets once trusted publishing is set up.
+  and no secrets: npm trusted publishing (OIDC) only.
 - **Tag ruleset `v*`**: only repository admins may create, update or delete `v*` tags.
 - **Branch protection on `main`**: pull requests required, the CI checks required, no force pushes, no deletion.
 - The `Release` workflow builds only from `main` or a `v*` tag and publishes only from a `v*` tag.

@@ -1,6 +1,6 @@
 {
   "schema": "nowo.beacon-js.golden/v1",
-  "sdk_version": "0.1.0",
+  "sdk_version": "0.2.0",
   "git_sha": null,
   "placeholders": {
     "project": "00000000-0000-4000-8000-000000000001",
