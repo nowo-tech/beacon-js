@@ -4,6 +4,14 @@ import { BeaconConfigError, defaultDsnParser, type DsnParser, type ParsedDsn } f
 import { encodeEnvelope, serializeLine } from './envelope.js';
 import { exceptionsFromError } from './exception.js';
 import { expandFingerprint } from './fingerprint.js';
+import {
+  forgetIngestPath,
+  isMissingRoute,
+  knownIngestPath,
+  provesRoute,
+  rememberIngestPath,
+  type IngestPaths,
+} from './ingest-paths.js';
 import { stripIp } from './privacy.js';
 import type { EnvelopeQueue, QueuedEnvelope } from './queue.js';
 import { backoffDelay, MAX_RETRY_AFTER_MS } from './ratelimit.js';
@@ -86,6 +94,11 @@ export interface ClientOptions {
    * 1 kB) and requires Beacon ≥ 1.143, the first ingest that decompresses `Content-Encoding: gzip`.
    */
   compression?: 'auto' | false;
+  /**
+   * `'auto'` (default): the versioned ingest path `/api/ingest/v1/…` (Beacon ≥ 1.147) first, then the unversioned
+   * alias once if the server does not know it, remembered per DSN. `'versioned'` / `'legacy'` force one.
+   */
+  ingestPaths?: IngestPaths;
   scrubber?: false | Scrubber;
   /** Envelope queue for retries and offline use; `false` disables it. */
   queue?: EnvelopeQueue | false;
@@ -486,18 +499,85 @@ export class Client {
     this.inFlight++;
     let result: TransportResult;
     try {
-      result = await this.transport!.send({
-        url: this.dsn!.envelopeUrl(),
-        headers: { ...this.headers },
-        body,
-        category: envelope.category,
-        ...(envelope.eventId ? { eventId: envelope.eventId } : {}),
-        ...(unload ? { unload } : {}),
-      });
+      result = await this.sendToIngest(
+        (url) =>
+          this.transport!.send({
+            url,
+            headers: { ...this.headers },
+            body,
+            category: envelope.category,
+            ...(envelope.eventId ? { eventId: envelope.eventId } : {}),
+            ...(unload ? { unload } : {}),
+          }),
+        unload,
+      );
     } finally {
       this.inFlight--;
     }
     return this.handleResult(result, envelope, fromQueue, byteLength(body));
+  }
+
+  /**
+   * Picks the envelope URL (`ingestPaths`). In `auto` mode the versioned URL is used unless the DSN's server is known to
+   * serve the unversioned alias only. Same state machine as beacon-php and BeaconBundle (audit LO-M1):
+   * - `404`/`405` → the same envelope once to the alias (nothing was processed, so this never duplicates). A target
+   *   known as versioned is forgotten first (self-heal after a Beacon downgrade or a stale entry).
+   * - `2xx` or a Beacon `400`/`401`/`403`/`413`/`415`/`422` → versioned is remembered.
+   * - `408`, `429`, `5xx`, other statuses, network failures and timeouts → nothing is learned, nothing re-sent.
+   * - Browser only: an opaque failure (an old Beacon's `404` carries no CORS headers) is re-sent to the alias only while
+   *   nothing is known about the target, at most once per target and 5 minutes (audit LO-L2, LOD-L1), never while
+   *   the browser reports itself offline (an outage, not a missing route), and never after a timeout, since the first
+   *   request may have been accepted.
+   * Unload requests use the alias until the versioned path is known (`sendBeacon` cannot report a status).
+   */
+  private async sendToIngest(
+    send: (url: string) => Promise<TransportResult>,
+    unload: boolean,
+  ): Promise<TransportResult> {
+    const dsn = this.dsn!;
+    const mode = this.options.ingestPaths;
+    const legacy = dsn.legacyEnvelopeUrl?.();
+    if (!legacy || mode === 'versioned') return send(dsn.envelopeUrl());
+    const known = mode === 'legacy' ? mode : knownIngestPath(legacy, this.now());
+    if (known === 'legacy' || (known !== 'versioned' && unload)) return send(legacy);
+    const first = await send(dsn.envelopeUrl());
+    const status = statusOf(first);
+    if (isMissingRoute(status)) {
+      forgetIngestPath(legacy);
+      return this.sendToAlias(send, legacy);
+    }
+    if (status !== undefined) {
+      if (provesRoute(status)) rememberIngestPath(legacy, 'versioned');
+      return first;
+    }
+    if (
+      known === undefined &&
+      first.kind === 'retry' &&
+      first.reason === 'network' &&
+      !first.timedOut &&
+      this.platform.platform === 'javascript' &&
+      this.platform.isOnline?.() !== false
+    ) {
+      rememberIngestPath(legacy, 'opaque', this.now());
+      return this.sendToAlias(send, legacy);
+    }
+    // While the 'opaque' marker lives, an opaque failure of the versioned path does not count toward the disable
+    // (audit LO2-L1): handleResult() adds it back, and resets the counter on any other retry reason.
+    if (known === 'opaque' && first.kind === 'retry') this.opaqueFailures--;
+    return first;
+  }
+
+  /** The one resend to the unversioned alias, and what its answer teaches. */
+  private async sendToAlias(
+    send: (url: string) => Promise<TransportResult>,
+    legacy: string,
+  ): Promise<TransportResult> {
+    const second = await send(legacy);
+    const status = statusOf(second);
+    // Both paths missing: the project is unknown, not the path. Keep the canonical path.
+    if (isMissingRoute(status)) rememberIngestPath(legacy, 'versioned');
+    else if (status !== undefined && provesRoute(status)) rememberIngestPath(legacy, 'legacy');
+    return second;
   }
 
   private handleResult(
@@ -638,3 +718,7 @@ export class Client {
     for (const integration of this.integrations) integration.teardown?.();
   }
 }
+
+/** The HTTP status behind a transport result (`200` for `ok`), `undefined` without a response. */
+const statusOf = (result: TransportResult): number | undefined =>
+  result.kind === 'ok' ? 200 : result.status;

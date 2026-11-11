@@ -1,6 +1,9 @@
 // @ts-check
 // Mock Beacon: a Node HTTP server that reimplements Beacon's ingest rules from contract §0 and §0.8 (spec 172),
 // with a legacy mode matching Beacon at 8f9f27fe. Every rule can be switched off. Test-only; credentials are fakes.
+// Paths (Beacon 1.147, D-20261110-04): the versioned `/api/ingest/v1/{projectId}/envelope/` and `…/otlp/v1/{signal}`
+// plus the unversioned permanent aliases. `paths: 'legacy-only'` plays a Beacon < 1.147: the versioned paths answer the
+// router's 404 with no CORS headers at all (a browser only sees an opaque failure).
 import { createServer } from 'node:http';
 import { gunzipSync } from 'node:zlib';
 
@@ -14,6 +17,7 @@ export const MAX_RATIO = 50;
  * @typedef {{ status: number, headers?: Record<string, string>, body?: string }} ScriptedResponse
  * @typedef {{
  *   mode: 'current' | 'legacy',
+ *   paths: 'all' | 'legacy-only',
  *   projectId: string,
  *   serverKeys: Array<{ public: string, secret: string }>,
  *   browserKeys: string[],
@@ -27,6 +31,7 @@ export const MAX_RATIO = 50;
 export function defaultConfig() {
   return {
     mode: 'current',
+    paths: 'all',
     projectId: PROJECT_ID,
     serverKeys: [{ public: 'test-public', secret: 'test-secret-not-real' }],
     browserKeys: ['bk_test_0000000000000000'],
@@ -179,8 +184,19 @@ export function createMockBeacon(overrides = {}) {
       res.end(body);
     };
 
-    const match = /^\/api\/([^/]+)\/envelope\/$/.exec(url.pathname);
-    if (!match) return send(404);
+    const route =
+      /^\/api\/(ingest\/v1\/)?([^/]+)\/(envelope\/|otlp\/v1\/(?:traces|logs|metrics))$/.exec(
+        url.pathname,
+      );
+    if (!route) return send(404);
+    if (route[1] && config.paths === 'legacy-only') {
+      // A Beacon < 1.147 router: plain 404, no CORS headers.
+      record.status = 404;
+      res.writeHead(404);
+      return res.end();
+    }
+    const match = [route[0], route[2]];
+    if (route[3] !== 'envelope/') return otlp(req, record, send, match[1]);
     if (req.method === 'OPTIONS') {
       if (!allowed) return send(403);
       return send(204, {
@@ -293,6 +309,17 @@ export function createMockBeacon(overrides = {}) {
     }
     return send(200);
   });
+
+  /** OTLP/HTTP: POST with a server key; the body is recorded, not decoded. */
+  function otlp(req, record, send, projectId) {
+    if (req.method !== 'POST') return send(405);
+    const auth = parseBeaconAuth(req.headers['x-beacon-auth']);
+    const serverKey = config.serverKeys.find((candidate) => candidate.public === auth.beacon_key);
+    if (projectId !== config.projectId || !serverKey || auth.beacon_secret !== serverKey.secret)
+      return send(401, {}, 'unauthorized');
+    record.keyKind = 'server';
+    return send(200, { 'Content-Type': 'application/json' }, '{}');
+  }
 
   /** Control endpoints: GET/DELETE /__requests, POST /__script, POST /__config, GET /__stats. */
   async function control(req, res, url) {

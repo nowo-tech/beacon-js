@@ -6,7 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "test": "node --test --test-concurrency=1 test/express.test.mjs test/process.test.mjs"
+    "test": "node --test --test-concurrency=1 test/express.test.mjs test/process.test.mjs test/ingest-paths.test.mjs"
   },
   "dependencies": {
     "@beacon-js/mock-beacon": "workspace:*",

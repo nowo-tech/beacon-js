@@ -18,8 +18,26 @@ export interface ParsedDsn {
   /** Server secret. Absent for browser keys. */
   secret?: string;
   kind: 'server' | 'browser';
+  /** Canonical envelope URL: `{origin}{prefix}/api/ingest/v1/{projectId}/envelope/` (Beacon ≥ 1.147). */
   envelopeUrl(): string;
+  /** Canonical OTLP/HTTP URL: `{origin}{prefix}/api/ingest/v1/{projectId}/otlp/v1/{signal}` (Beacon ≥ 1.147). */
   otlpUrl(signal: OtlpSignal): string;
+  /**
+   * Unversioned envelope URL `{origin}{prefix}/api/{projectId}/envelope/`, a permanent alias that every Beacon serves.
+   * Optional for custom parsers: without it the client never falls back (`ingestPaths` is ignored).
+   */
+  legacyEnvelopeUrl?(): string;
+  /** Unversioned OTLP/HTTP URL `{origin}{prefix}/api/{projectId}/otlp/v1/{signal}` (permanent alias). */
+  legacyOtlpUrl?(signal: OtlpSignal): string;
+}
+
+/**
+ * OTLP/HTTP exporter base endpoint (the exporter appends `/v1/{signal}`): `{origin}{prefix}/api/ingest/v1/{projectId}/otlp`,
+ * or the unversioned alias with `legacy` (for Beacon < 1.147).
+ */
+export function otlpEndpoint(dsn: ParsedDsn, legacy = false): string {
+  const url = legacy && dsn.legacyOtlpUrl ? dsn.legacyOtlpUrl('traces') : dsn.otlpUrl('traces');
+  return url.slice(0, -'/v1/traces'.length);
 }
 
 /** Turns user configuration into an ingest target. */
@@ -70,6 +88,7 @@ export const defaultDsnParser: DsnParser = {
     const kind = publicKey.startsWith(BROWSER_KEY_PREFIX) ? 'browser' : 'server';
     if (kind === 'browser' && secret !== undefined) fail('a browser key never has a secret');
     const base = `${protocol}://${url.host}${segments.length ? `/${segments.join('/')}` : ''}`;
+    const at = (version: string, path: string) => `${base}/api/${version}${projectId}/${path}`;
     const parsed: ParsedDsn = {
       protocol,
       host: url.host,
@@ -77,8 +96,10 @@ export const defaultDsnParser: DsnParser = {
       projectId,
       publicKey,
       kind,
-      envelopeUrl: () => `${base}/api/${projectId}/envelope/`,
-      otlpUrl: (signal) => `${base}/api/${projectId}/otlp/v1/${signal}`,
+      envelopeUrl: () => at('ingest/v1/', 'envelope/'),
+      otlpUrl: (signal) => at('ingest/v1/', `otlp/v1/${signal}`),
+      legacyEnvelopeUrl: () => at('', 'envelope/'),
+      legacyOtlpUrl: (signal) => at('', `otlp/v1/${signal}`),
     };
     if (secret !== undefined) parsed.secret = secret;
     return parsed;

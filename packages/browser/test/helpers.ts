@@ -3,7 +3,7 @@ import { vi } from 'vitest';
 export const DSN =
   'https://bk_test_0000000000000000@beacon.test/00000000-0000-4000-8000-000000000001';
 export const ENVELOPE_URL =
-  'https://beacon.test/api/00000000-0000-4000-8000-000000000001/envelope/';
+  'https://beacon.test/api/ingest/v1/00000000-0000-4000-8000-000000000001/envelope/';
 
 export interface Sent {
   url: string;

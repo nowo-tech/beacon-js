@@ -1,6 +1,6 @@
 {
   "name": "@nowo-tech/beacon-express",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Beacon middleware for Express 4 and 5: request isolation, scrubbed request context and error capture.",
   "keywords": [
     "beacon",

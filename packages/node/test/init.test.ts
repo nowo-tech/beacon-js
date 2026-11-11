@@ -37,7 +37,9 @@ describe('init', () => {
     await node.flush(2000);
     expect(fetch).toHaveBeenCalledTimes(1);
     const [url, init] = fetch.mock.calls[0]! as [string, RequestInit];
-    expect(url).toBe('https://beacon.test/api/00000000-0000-4000-8000-000000000001/envelope/');
+    expect(url).toBe(
+      'https://beacon.test/api/ingest/v1/00000000-0000-4000-8000-000000000001/envelope/',
+    );
     expect(url).not.toMatch(/beacon_key|beacon_secret|sentry_key|bk_|secret/);
     expect(init.headers).toMatchObject({
       'Content-Type': 'application/x-beacon-envelope',

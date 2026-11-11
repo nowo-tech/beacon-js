@@ -1,6 +1,6 @@
 {
   "name": "@nowo-tech/beacon-core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Beacon SDK core: event model, Sentry-compatible envelope encoder, transport, scopes. Zero runtime dependencies.",
   "keywords": [
     "beacon",

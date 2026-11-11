@@ -28,7 +28,7 @@ beforeAll(async () => {
 afterAll(() => mock.close());
 beforeEach(() => {
   mock.reset();
-  mock.configure({ mode: 'current', rules: { rateLimits: true } });
+  mock.configure({ mode: 'current', paths: 'all', rules: { rateLimits: true } });
 });
 
 describe('mock Beacon', () => {
@@ -230,6 +230,60 @@ describe('mock Beacon', () => {
         })
       ).status,
     ).toBe(400);
+  });
+
+  it('serves the versioned ingest paths (envelope, preflight, OTLP) next to the aliases', async () => {
+    const versioned = `/api/ingest/v1/${PROJECT_ID}/envelope/`;
+    expect(
+      (await send(base, { path: versioned, headers: serverHeaders, body: eventBody })).status,
+    ).toBe(200);
+    const preflight = await send(base, {
+      method: 'OPTIONS',
+      path: versioned,
+      headers: { Origin: ORIGIN },
+    });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers['access-control-allow-origin']).toBe(ORIGIN);
+    for (const prefix of [`/api/ingest/v1/${PROJECT_ID}`, `/api/${PROJECT_ID}`]) {
+      for (const signal of ['traces', 'logs', 'metrics']) {
+        const otlp = `${prefix}/otlp/v1/${signal}`;
+        expect((await send(base, { path: otlp, headers: serverHeaders, body: 'x' })).status).toBe(
+          200,
+        );
+      }
+      expect((await send(base, { path: `${prefix}/otlp/v1/traces`, body: 'x' })).status).toBe(401);
+      expect((await send(base, { method: 'GET', path: `${prefix}/otlp/v1/traces` })).status).toBe(
+        405,
+      );
+    }
+    expect(
+      (await send(base, { path: `/api/ingest/v1/${PROJECT_ID}/otlp/v1/x`, body: 'x' })).status,
+    ).toBe(404);
+  });
+
+  it('legacy-only paths: the versioned paths answer a bare 404 without CORS', async () => {
+    mock.configure({ paths: 'legacy-only' });
+    const versioned = `/api/ingest/v1/${PROJECT_ID}/envelope/`;
+    for (const method of ['POST', 'OPTIONS']) {
+      const answer = await send(base, {
+        method,
+        path: versioned,
+        headers: { ...serverHeaders, Origin: ORIGIN },
+        body: method === 'POST' ? eventBody : undefined,
+      });
+      expect(answer.status).toBe(404);
+      expect(answer.headers['access-control-allow-origin']).toBeUndefined();
+    }
+    expect(
+      (
+        await send(base, {
+          path: `/api/ingest/v1/${PROJECT_ID}/otlp/v1/traces`,
+          headers: serverHeaders,
+          body: 'x',
+        })
+      ).status,
+    ).toBe(404);
+    expect((await send(base, { path, headers: serverHeaders, body: eventBody })).status).toBe(200);
   });
 
   it('exposes control endpoints', async () => {

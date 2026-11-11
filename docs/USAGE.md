@@ -45,7 +45,7 @@ page is hidden, queue flush when back online). `close()` restores every wrapped 
 ```
 
 Attributes: `dsn` (required), `release`, `dist`, `environment`, `sample-rate`, `debug`, `disabled`, `user-id`,
-`nonce`, `ignore-errors` (`;`-separated). `release`, `environment`, `user-id` and `disabled` apply live; a new `dsn`
+`nonce`, `ignore-errors` (`;`-separated), `ingest-paths` (`auto` | `versioned` | `legacy`, see CONFIGURATION). `release`, `environment`, `user-id` and `disabled` apply live; a new `dsn`
 re-initialises the client. Events (bubbling, composed): `beacon:ready`, `beacon:captured` (`{eventId}`),
 `beacon:dropped` (`{reason}`), `beacon:error` (`{status}`). With a bundler, `import '@nowo-tech/beacon-browser/element'`
 registers it.
