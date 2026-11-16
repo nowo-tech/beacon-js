@@ -1,0 +1,12 @@
+---
+description: Browser deliverables (no Twig in this repository)
+globs:
+  - "packages/browser/src/**/*.ts"
+  - ".size-limit.json"
+alwaysApply: false
+---
+
+- There are no Twig templates. The public browser assets are the ESM build and the IIFE `beacon.min.js`, attached to
+  each GitHub release with checksums.
+- Keep the `<beacon-reporter>` attributes backward compatible; document new attributes in `docs/USAGE.md`.
+- Respect the size-limit budgets; CSP notes live in `docs/PRIVACY.md`.

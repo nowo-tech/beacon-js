@@ -8,7 +8,7 @@ The four packages — `@nowo-tech/beacon-core`, `@nowo-tech/beacon-browser`, `@n
 Publishing is three steps; everything after the tag is automatic:
 
 1. **Bump the four versions.** `packages/{core,browser,node,express}/package.json` all get the same version
-   (`pnpm changeset version` applies the pending changesets), with `CHANGELOG` / `UPGRADING` updated.
+   (`pnpm changeset version` applies the pending changesets), with the package `CHANGELOG`s and `docs/UPGRADING.md` updated.
 2. **Merge** that change to `main` through a pull request with green CI.
 3. **Push an annotated tag** `vX.Y.Z` on the merge commit (`git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`).
 
@@ -35,4 +35,4 @@ by hand with a short-lived granular token, add its trusted publisher, then revok
 the repository or the `npm-publish` environment.
 
 Repository settings that releases rely on (environment `npm-publish`, tag ruleset, branch protection) are listed in
-[CONTRIBUTING](../CONTRIBUTING.md#required-github-settings-owner-before-publishing).
+[CONTRIBUTING](CONTRIBUTING.md#required-github-settings-owner-before-publishing).

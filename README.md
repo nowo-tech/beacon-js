@@ -1,8 +1,15 @@
 # beacon-js
 
-[![License: MIT](https://img.shields.io/github/license/nowo-tech/beacon-js)](LICENSE)
 [![CI](https://github.com/nowo-tech/beacon-js/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nowo-tech/beacon-js/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@nowo-tech/beacon-core)](https://www.npmjs.com/package/@nowo-tech/beacon-core)
+[![npm downloads](https://img.shields.io/npm/dm/@nowo-tech/beacon-core)](https://www.npmjs.com/package/@nowo-tech/beacon-core)
+[![License: MIT](https://img.shields.io/github/license/nowo-tech/beacon-js)](LICENSE)
+[![Node](https://img.shields.io/badge/Node-20%2B-339933?logo=node.js)](https://nodejs.org)
+[![GitHub stars](https://img.shields.io/github/stars/nowo-tech/beacon-js.svg?style=social&label=Star)](https://github.com/nowo-tech/beacon-js)
+[![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen)](#tests-and-coverage)
+
+> ⭐ **Found this useful?** [Install from npm](https://www.npmjs.com/package/@nowo-tech/beacon-core) · Give it a
+> **star** on [GitHub](https://github.com/nowo-tech/beacon-js) so more developers can find it.
 
 TypeScript SDK for **Symfony Beacon**: error reporting from browsers and Node.js. The envelopes stay wire-compatible
 with Sentry's: they are valid Sentry envelopes, restricted to a strict subset (one event per envelope, single-line
@@ -52,11 +59,6 @@ app.use(beaconRequestHandler());
 app.use(beaconErrorHandler());
 ```
 
-More: [USAGE](docs/USAGE.md) · [CONFIGURATION](docs/CONFIGURATION.md) · [PRIVACY](docs/PRIVACY.md) ·
-[FRAMEWORKS](docs/FRAMEWORKS.md) · [SOURCEMAPS](docs/SOURCEMAPS.md) · [RELEASE](docs/RELEASE.md) ·
-[CONTRIBUTING](CONTRIBUTING.md) ·
-[SECURITY](SECURITY.md)
-
 ## Repository layout
 
 ```
@@ -67,6 +69,37 @@ e2e/browser         Playwright e2e (IIFE + <beacon-reporter>, Chromium, Firefox,
 fixtures/envelopes  golden envelope set (inputs + generated files), attached to every release
 tooling/            build (esbuild + tsc + API Extractor), shared Vitest config, pack check
 ```
+
+## Documentation
+
+- [Installation](docs/INSTALLATION.md)
+- [Configuration](docs/CONFIGURATION.md)
+- [Usage](docs/USAGE.md)
+- [Contributing](docs/CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Changelog](docs/CHANGELOG.md)
+- [Upgrading](docs/UPGRADING.md)
+- [Release](docs/RELEASE.md)
+- [Security](docs/SECURITY.md)
+- [Engram](docs/ENGRAM.md)
+- [Spec-driven development](docs/SPEC-DRIVEN-DEVELOPMENT.md)
+- [GitHub Spec Kit](docs/SPEC-KIT.md)
+
+### Additional documentation
+
+- [Privacy](docs/PRIVACY.md)
+- [Frameworks](docs/FRAMEWORKS.md)
+- [Source maps](docs/SOURCEMAPS.md)
+- [Security policy (GitHub)](.github/SECURITY.md)
+
+## Tests and coverage
+
+- Tests: Vitest unit tests per package (Node 22 / 24, Linux and Windows; browser package in Vitest browser mode on
+  Chromium), mock Beacon with the golden envelope set, Node e2e (Express, Node 20 / 22 / 24) and Playwright e2e
+  (Chromium, Firefox, WebKit)
+- TS/JS: 100% (statements, branches, functions and lines in each of the four packages; gate enforced in CI)
+- PHP: N/A
+- Python: N/A
 
 ## License
 

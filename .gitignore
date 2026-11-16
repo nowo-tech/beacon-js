@@ -1,14 +1,37 @@
+# Dependencies
 node_modules/
+.pnpm-store/
+
+# Build output
 dist/
-coverage/
 temp/
 *.tsbuildinfo
-.pnpm-store/
+
+# Test coverage and reports
+coverage/
 test-results/
 playwright-report/
 blob-report/
 .size-limit-report/
-.DS_Store
-*.log
 .vitest/
 .vitest-attachments/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Archives / compressed
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# Cursor local sandbox (machine-specific; REQ-IDE-005)
+.cursor/sandbox.json
+
+# OS / logs
+.DS_Store
+*.log

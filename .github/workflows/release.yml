@@ -9,7 +9,7 @@ name: Release
 #   `npm-publish` environment (npm trusted publishing, OIDC only: the environment has no secrets). Versions already on npm are skipped,
 #   so a failed run can be re-run.
 # - `github-release` (tags only, after publish) creates the GitHub release with the browser bundles and checksums.
-# See "Releasing" in CONTRIBUTING.md.
+# See "Releasing" in docs/CONTRIBUTING.md.
 on:
   push:
     tags:

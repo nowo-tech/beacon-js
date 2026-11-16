@@ -1,5 +1,13 @@
 # Usage
 
+## Table of contents
+
+- [Browser](#browser)
+  - [`<beacon-reporter>`](#beacon-reporter)
+  - [Offline queue](#offline-queue)
+- [Node](#node)
+- [Express](#express)
+
 ## Browser
 
 ```ts

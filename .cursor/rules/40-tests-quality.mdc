@@ -1,0 +1,15 @@
+---
+description: Tests and quality rules
+globs:
+  - "packages/*/test/**/*.ts"
+  - "e2e/**/*"
+  - "fixtures/**/*"
+  - "tooling/vitest.shared.ts"
+alwaysApply: false
+---
+
+- Vitest coverage stays at 100% statements, branches, functions and lines per package; a `/* v8 ignore */` needs a reason.
+- Wire changes update the golden envelopes (`pnpm golden`) and the mock Beacon tests.
+- Quality commands: `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`, `pnpm test:mock`,
+  `pnpm e2e:node`, `pnpm e2e:browser`, `pnpm size`, `pnpm pack:check`, or `make release-check`.
+- Tests use obvious fake credentials only.

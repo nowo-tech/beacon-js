@@ -1,0 +1,14 @@
+---
+description: Global rules for the beacon-js SDK monorepo
+alwaysApply: true
+---
+
+This repository is **beacon-js**: the TypeScript SDK for Symfony Beacon, published on npm as
+`@nowo-tech/beacon-core`, `-browser`, `-node` and `-express` (versioned together, pnpm workspace).
+
+Key rules of this repository:
+- Envelopes stay valid Sentry envelopes in Beacon's strict subset; the golden set (`fixtures/envelopes/golden`) is the contract.
+- Never send the user's IP; never put credentials in a URL; never follow redirects; the browser build refuses a DSN secret.
+- `@nowo-tech/beacon-core` has no runtime dependencies; size budgets change only with a changeset that says why.
+- Never tag or publish: releases come only from a `v*` tag pushed by the owner (`docs/RELEASE.md`).
+- English for code, comments and docs. Keep the spec (`specs/001-baseline/`) in sync with `packages/*/src/`.

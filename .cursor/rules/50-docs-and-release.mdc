@@ -1,0 +1,13 @@
+---
+description: Documentation and release notes rules
+globs:
+  - "README.md"
+  - "docs/**/*.md"
+  - ".changeset/**/*.md"
+alwaysApply: false
+---
+
+- Keep docs aligned with real code changes; English only.
+- User-visible package changes add a changeset (`pnpm changeset`); `docs/UPGRADING.md` explains migrations.
+- Repository-only changes (docs, tooling, CI) go to `docs/CHANGELOG.md` and need no changeset.
+- Never tag or publish from a workstation or an agent; see `docs/RELEASE.md`.

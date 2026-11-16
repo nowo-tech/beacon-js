@@ -1,0 +1,12 @@
+---
+description: Build tooling (esbuild + tsc + API Extractor; no Vite or Pentatrion here)
+globs:
+  - "tooling/**/*"
+  - "packages/*/tsconfig*.json"
+  - "tsconfig.base.json"
+alwaysApply: false
+---
+
+- `tooling/build.mjs` builds with esbuild, emits declarations with tsc and rolls them up with API Extractor.
+- `tooling/pack-check.mjs` checks the packed tarballs (publint, attw, contents); keep `files` in each `package.json` minimal.
+- Builds must stay reproducible (CI builds twice and compares the bytes).

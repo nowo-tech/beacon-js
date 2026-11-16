@@ -1,0 +1,13 @@
+---
+description: Package source rules (TypeScript; this repository has no PHP or Symfony code)
+globs:
+  - "packages/*/src/**/*.ts"
+  - "packages/*/package.json"
+alwaysApply: false
+---
+
+- TypeScript strict mode; ESM; no new runtime dependency in `beacon-core`.
+- Node packages support Node >= 20; the browser package targets evergreen browsers.
+- A public API change regenerates `packages/*/etc/*.api.md` (`pnpm build`); CI fails when it is stale.
+- File names are kebab-case; JSDoc in English.
+- New or removed source files update `specs/001-baseline/code-inventory.md`.
