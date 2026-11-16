@@ -10,3 +10,6 @@ fixtures/envelopes/golden/
 test-results/
 playwright-report/
 **/fixtures/*.txt
+# Spec Kit scaffolding (generated and refreshed by `specify init`)
+.specify/
+.cursor/skills/

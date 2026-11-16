@@ -1,0 +1,9 @@
+# CODEOWNERS for beacon-js
+# Default owner for everything in the repository
+* @HecFranco
+
+# GitHub metadata and workflows
+/.github/ @HecFranco
+
+# Published packages
+/packages/ @HecFranco

@@ -1,5 +1,15 @@
 # Configuration
 
+## Table of contents
+
+- [Options](#options)
+- [Compression](#compression)
+- [Ingest paths](#ingest-paths)
+- [Transport behaviour](#transport-behaviour)
+- [Queue flush and the rate limits](#queue-flush-and-the-rate-limits)
+
+## Options
+
 | Option                                  | Default                                                 | Notes                                                                      |
 | --------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------- |
 | `dsn`                                   | required                                                | browser: `https://bk_…@host/<uuid>`; Node: `https://<pk>:<sk>@host/<uuid>` |

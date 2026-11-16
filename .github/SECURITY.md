@@ -1,17 +1,20 @@
-# Security policy
+# Security Policy
 
-## Reporting a vulnerability
+## Supported Versions
+
+| Version                | Supported |
+| ---------------------- | --------- |
+| latest minor (`0.2.x`) | yes       |
+| older                  | no        |
+
+## Reporting a Vulnerability
 
 Please report vulnerabilities **privately** through
 [GitHub Security Advisories](https://github.com/nowo-tech/beacon-js/security/advisories/new). Do not open a public
 issue. We acknowledge reports within **72 hours**, and we publish an advisory once a fix is released.
 
-## Supported versions
-
-| Version                | Supported |
-| ---------------------- | --------- |
-| latest minor (`0.1.x`) | yes       |
-| older                  | no        |
+Please include the affected package and version, steps to reproduce, the impact and a PoC if available. Never paste a
+real DSN, key or token: use obvious fakes.
 
 ## Scope notes
 
@@ -22,3 +25,5 @@ issue. We acknowledge reports within **72 hours**, and we publish an advisory on
   (the DSN secret) and the body to another host. A redirect is a failed send that is never re-sent.
 - Never paste a real DSN, key or token into an issue, a test or a CI log. Fixtures use obvious fakes only
   (`bk_test_0000…`, `test-secret-not-real`, `golden-secret-not-real`).
+
+For the threat model and the release security checklist, see [docs/SECURITY.md](../docs/SECURITY.md).

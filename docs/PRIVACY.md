@@ -1,5 +1,16 @@
 # Privacy
 
+## Table of contents
+
+- [What is sent](#what-is-sent)
+- [What is never sent](#what-is-never-sent)
+- [Limits of IP stripping](#limits-of-ip-stripping)
+- [Limits of value scrubbing](#limits-of-value-scrubbing)
+- [Data at rest](#data-at-rest)
+- [Scrubbing (default)](#scrubbing-default)
+- [CSP](#csp)
+- [Snippet for your privacy notice](#snippet-for-your-privacy-notice)
+
 ## What is sent
 
 An event carries: `event_id`, `timestamp`, `platform`, `level`, `logger`, `release`, `dist`, `environment`, the

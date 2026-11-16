@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+temp/
+*.tsbuildinfo
+
+# Coverage and test reports
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.size-limit-report/
+.vitest/
+
+# Generated contract files (regenerate instead of editing)
+fixtures/envelopes/golden/
+packages/*/etc/*.api.md
+
+# Package manager locks
+pnpm-lock.yaml
+
+# IDE / local
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example
+
+# Archives / binaries / logs
+*.log
+*.zip
+*.tar
+*.tgz
+*.gz
+
+# Secrets
+*.pem
+*.key

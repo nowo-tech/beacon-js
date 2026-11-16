@@ -1,5 +1,15 @@
 # Contributing
 
+## Table of contents
+
+- [Setup](#setup)
+- [Rules](#rules)
+- [Required GitHub settings (owner, before publishing)](#required-github-settings-owner-before-publishing)
+- [Cursor Agent settings](#cursor-agent-settings)
+- [Git hooks](#git-hooks)
+- [Pre-release check](#pre-release-check)
+- [Releasing](#releasing)
+
 ## Setup
 
 - Node 22 (see `.nvmrc`) for development; the packages support Node ≥ 20 at runtime.
@@ -25,7 +35,7 @@ pnpm golden:check   # regenerates fixtures/envelopes/golden and fails on any byt
   comment and is reviewed.
 - A public API change updates `packages/*/etc/*.api.md` (the build writes it; CI fails when it is stale).
 - User-visible changes add a changeset (`pnpm changeset`). Raising a size budget needs a changeset that says why.
-- No real credentials anywhere. Tests use the fakes listed in `SECURITY.md`.
+- No real credentials anywhere. Tests use the fakes listed in [`.github/SECURITY.md`](../.github/SECURITY.md).
 
 ## Required GitHub settings (owner, before publishing)
 
@@ -41,7 +51,41 @@ These are repository settings, so they are not in the code; set them before `NPM
   no npm credential and no `id-token: write`; the `publish` job only downloads the packed tarballs, checks their
   SHA-256, installs npm by exact version and publishes. It alone uses the `npm-publish` environment.
 
+## Cursor Agent settings
+
+Contributors using Cursor Agent on this repository should enable these user-level settings (REQ-IDE-006):
+
+1. **Submit with Ctrl + Enter** (macOS: **⌘ + Enter**): Cursor Settings → Agents / Chat → Submit with Ctrl + Enter.
+   Enter inserts a newline; Ctrl/⌘+Enter submits the prompt.
+2. **Queue follow-ups while the agent is running**: in your user `settings.json` (Linux
+   `~/.config/Cursor/User/settings.json`, Windows `%APPDATA%\Cursor\User\settings.json`, macOS
+   `~/Library/Application Support/Cursor/User/settings.json`):
+
+```json
+{
+  "cursor.composer.queueMessageDefaultBehavior": "queue"
+}
+```
+
+Do not use `"steer"` as the default: it interrupts the running agent turn as soon as the follow-up is sent.
+
+## Git hooks
+
+Do **not** add `Co-authored-by: Cursor` / `cursoragent@cursor.com` trailers, nor `Co-Authored-By: Claude …` /
+`noreply@anthropic.com` ones, to commit messages (REQ-GIT-001). CI fails on them.
+
+```sh
+make setup-hooks              # once per clone: core.hooksPath = .githooks (commit-msg strips those trailers)
+make check-no-cursor-coauthor
+```
+
+## Pre-release check
+
+`make release-check` runs, in Docker: the co-author and open-PR checks, install, lint and format, golden set and API
+reports, unit tests with coverage (all packages), the global TS coverage percentage, Node and browser e2e, size and
+pack checks. It never tags or publishes.
+
 ## Releasing
 
-See [docs/RELEASE.md](docs/RELEASE.md): bump the four versions, merge, push an annotated `v*` tag; the `Release`
+See [RELEASE](RELEASE.md): bump the four versions, merge, push an annotated `v*` tag; the `Release`
 workflow publishes to npm and creates the GitHub release.
